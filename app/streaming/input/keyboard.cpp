@@ -148,6 +148,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
 {
     short keyCode;
     char modifiers;
+    bool shouldNotConvertToScanCodeOnServer = false;
 
     if (event->repeat) {
         // Ignore repeat key down events
@@ -398,10 +399,27 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 break;
             case SDL_SCANCODE_GRAVE:
                 keyCode = 0xC0;
-                break;
+                if (event->state == SDL_PRESSED) {
+                    m_KeysDown.remove(keyCode);
+                    LiSendKeyboardEvent2(0x8000 | keyCode,
+                                         KEY_ACTION_UP,
+                                         modifiers,
+                                         0);
+                }
+                else {
+                    m_KeysDown.insert(keyCode);
+                    LiSendKeyboardEvent2(0x8000 | keyCode,
+                                         KEY_ACTION_DOWN,
+                                         modifiers,
+                                         0);
+                }
+                return;
             case SDL_SCANCODE_LEFTBRACKET:
                 keyCode = 0xDB;
                 break;
+            case SDL_SCANCODE_INTERNATIONAL3:
+                shouldNotConvertToScanCodeOnServer = true;
+                Q_FALLTHROUGH();
             case SDL_SCANCODE_BACKSLASH:
                 keyCode = 0xDC;
                 break;
@@ -412,6 +430,9 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 keyCode = 0xDE;
                 break;
             case SDL_SCANCODE_NONUSBACKSLASH:
+                shouldNotConvertToScanCodeOnServer = true;
+                Q_FALLTHROUGH();
+            case SDL_SCANCODE_INTERNATIONAL1:
                 keyCode = 0xE2;
                 break;
             default:
@@ -430,8 +451,9 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
         m_KeysDown.remove(keyCode);
     }
 
-    LiSendKeyboardEvent(0x8000 | keyCode,
-                        event->state == SDL_PRESSED ?
-                            KEY_ACTION_DOWN : KEY_ACTION_UP,
-                        modifiers);
+    LiSendKeyboardEvent2(0x8000 | keyCode,
+                         event->state == SDL_PRESSED ?
+                             KEY_ACTION_DOWN : KEY_ACTION_UP,
+                         modifiers,
+                         shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0);
 }

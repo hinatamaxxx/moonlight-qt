@@ -1,0 +1,48 @@
+name: Build Custom Windows
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.7.3
+          arch: win64_msvc2019_64
+          cache: true
+          set-env: false
+          add-tools-to-path: false
+
+      - name: Build x64 portable package
+        shell: cmd
+        run: |
+          set "PATH=%QT_PATH%;%PATH%"
+          scripts\build-arch.bat Release
+        env:
+          QT_PATH: ${{ runner.workspace }}\Qt\6.7.3\msvc2019_64\bin
+
+      - name: Upload portable folder
+        uses: actions/upload-artifact@v6
+        with:
+          name: Moonlight-Windows-x64-jp-keyboard-6.1.0
+          path: build/deploy-x64-release/*
+          if-no-files-found: error
+
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v6
+        with:
+          name: MoonlightPortable-Windows-x64-jp-keyboard-6.1.0
+          path: build/installer-x64-release/MoonlightPortable-x64-6.1.0.zip
+          if-no-files-found: error
