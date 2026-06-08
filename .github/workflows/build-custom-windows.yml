@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - jp-keyboard-v6.1.0
   workflow_dispatch:
 
 jobs:
