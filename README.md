@@ -1,4 +1,32 @@
-# Moonlight PC
+# Moonlight PC Japanese Keyboard Fix Fork
+
+これは [moonlight-stream/moonlight-qt](https://github.com/moonlight-stream/moonlight-qt) を元にした非公式フォークです。
+
+このフォークは、Moonlight PC v6.1.0 の Windows 版で日本語 JIS キーボードを使う際に一部キー入力が正しく扱われない問題を、個人利用のために暫定修正したものです。元になっているバージョンは本家 `v6.1.0` です。
+
+本家に関連修正が入った最新版が長期間公開されなかったため、Codex を使って必要な範囲だけ修正しています。本家で同等以上の修正が入った正式版が公開された場合は、このフォークではなく本家版の利用を推奨します。
+
+## このフォークでの修正点
+
+- Windows 版で日本語 JIS キーボードの `_` キーが入力できない問題を修正
+- JIS 配列の一部キーで Moonlight/Sunshine 間のスキャンコード変換により別キーとして扱われる問題を軽減
+- 半角/全角キーが押しっぱなし扱いになる問題を軽減するため、Moonlight 側で反転して届く押下/解放イベントを補正
+
+## 既知の問題と将来課題
+
+- 半角/全角キーを長押しすると、IME の日本語/英語入力が高速に切り替わる場合があります。
+- キー入力フォーカスがない状態での IME 切り替え挙動は、Moonlight 単体では完全に制御できない可能性があります。Sunshine 側やホスト OS 側のフォーカス/IME 処理も関係します。
+- この修正は主に Windows クライアントと日本語 JIS キーボード環境向けです。他のキーボード配列や OS での動作は十分に検証していません。
+
+## 利用上の注意
+
+このフォークは非公式の暫定修正版です。使用は自己責任でお願いします。安定性、セキュリティ、互換性、将来の更新追従は本家 Moonlight の正式リリースと同等には保証されません。
+
+GitHub Actions からビルドした成果物を使う場合も、内容を理解したうえで利用してください。
+
+---
+
+# Original Moonlight PC README
 
 [Moonlight PC](https://moonlight-stream.org) is an open source PC client for NVIDIA GameStream and [Sunshine](https://github.com/LizardByte/Sunshine).
 
