@@ -1,12 +1,26 @@
 # Moonlight PC Japanese Keyboard Fix Fork
 
+## 保守終了・公式版への移行（2026-10-04）
+
+この非公式フォークの保守と新規ビルド配布は終了しました。今後は [Moonlight公式最新版](https://github.com/moonlight-stream/moonlight-qt/releases/latest) の利用を推奨します。2026-10-04時点の最新版は [v6.2.0](https://github.com/moonlight-stream/moonlight-qt/releases/tag/v6.2.0) です。このリポジトリと旧Releaseは、過去のソースと配布物を参照するために保存します。
+
+- 公式v6.2.0には、`¥`、`ろ/_`、変換・無変換キーに対応する [PR #1532](https://github.com/moonlight-stream/moonlight-qt/pull/1532) が収録されています。PRで報告されたテスト環境はMacのJISキーボード→WindowsのSunshineです。全環境での動作を保証するものではありません。
+- フォーク独自の半角/全角キーの押下・解放イベント補正と、一部キーの送信フラグは公式v6.2.0のコードと異なります。このフォークが対象としていたWindows環境の問題が、公式版ですべて解消したかは未検証です。[PR #1984](https://github.com/moonlight-stream/moonlight-qt/pull/1984) は同日時点で未統合であり、v6.2.0に含まれる修正とは別です。
+- 移行前に、公式Windows Portable版を別フォルダで起動し、普段のSunshine接続先で `¥`、`ろ/_`、半角/全角、変換・無変換キーを確認してください。確認が済むまで旧版は手元に残してください。
+
+**Maintenance ended.** Please use the [latest official Moonlight release](https://github.com/moonlight-stream/moonlight-qt/releases/latest) ([v6.2.0](https://github.com/moonlight-stream/moonlight-qt/releases/tag/v6.2.0) as of 2026-10-04). [PR #1532](https://github.com/moonlight-stream/moonlight-qt/pull/1532) is included (tested with Mac JIS input to Windows Sunshine), but this fork's Windows-specific key event/flag changes are not identical to the official code. Whether the official release resolves all Windows issues addressed by this fork has not been verified; test JIS input before replacing your copy. [PR #1984](https://github.com/moonlight-stream/moonlight-qt/pull/1984) remains unmerged as of that date. Historical source and release assets are retained.
+
+文章校正 / Proofreading: Gemini 3.8 Flash (High).
+
+---
+
 これは [moonlight-stream/moonlight-qt](https://github.com/moonlight-stream/moonlight-qt) を元にした非公式フォークです。
 
 このフォークは、本家 `moonlight-stream/moonlight-qt` のタグ `v6.1.0` のソースコードをベースにしています。最新の `master` ブランチを編集したものではありません。
 
 Moonlight PC v6.1.0 の Windows 版で日本語 JIS キーボードを使う際に一部キー入力が正しく扱われない問題を、個人利用のために暫定修正したものです。
 
-本家に関連修正が入った最新版が長期間公開されなかったため、Codex を使って必要な範囲だけ修正しています。本家で同等以上の修正が入った正式版が公開された場合は、このフォークではなく本家版の利用を推奨します。
+このフォークは、公式v6.2.0の公開前にCodexを使って作成した暫定修正版です。以下は旧版の修正内容と既知の問題の記録です。
 
 ## このフォークでの修正点
 
