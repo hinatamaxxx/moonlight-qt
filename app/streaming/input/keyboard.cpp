@@ -3,6 +3,10 @@
 #include <Limelight.h>
 #include "SDL_compat.h"
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 #define VK_0 0x30
 #define VK_A 0x41
 
@@ -188,6 +192,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
     char modifiers;
     char flags;
     bool shouldNotConvertToScanCodeOnServer = false;
+    Uint8 keyState = event->state;
 
     if (event->repeat) {
         // Ignore repeat key down events
@@ -464,6 +469,15 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 break;
             case SDL_SCANCODE_GRAVE:
                 keyCode = 0xC0;
+#ifdef Q_OS_WIN
+                // Windows JIS Hankaku/Zenkaku events arrive with the opposite
+                // state. Preserve the v6.1.0 fork's correction, but keep US
+                // backtick input and other platforms on the upstream path.
+                if (PRIMARYLANGID(LOWORD(reinterpret_cast<UINT_PTR>(
+                        GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), nullptr))))) == LANG_JAPANESE) {
+                    keyState = event->state == SDL_PRESSED ? SDL_RELEASED : SDL_PRESSED;
+                }
+#endif
                 break;
             case SDL_SCANCODE_LEFTBRACKET:
                 keyCode = 0xDB;
@@ -484,6 +498,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 shouldNotConvertToScanCodeOnServer = true;
                 Q_FALLTHROUGH();
             case SDL_SCANCODE_NONUSBACKSLASH:
+                shouldNotConvertToScanCodeOnServer = true;
                 keyCode = 0xE2;
                 break;
             case SDL_SCANCODE_LANG1:
@@ -504,7 +519,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
     flags = shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0;
 
     // Track the key state so we always know which keys are down
-    if (event->state == SDL_PRESSED) {
+    if (keyState == SDL_PRESSED) {
         m_KeysDown.insert(MAKE_KEYPRESS_STATE(keyCode, modifiers, flags));
     }
     else {
@@ -512,7 +527,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
     }
 
     LiSendKeyboardEvent2(keyCode,
-                         event->state == SDL_PRESSED ?
+                         keyState == SDL_PRESSED ?
                              KEY_ACTION_DOWN : KEY_ACTION_UP,
                          modifiers,
                          flags);

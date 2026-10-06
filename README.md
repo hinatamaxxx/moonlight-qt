@@ -1,4 +1,31 @@
-# Moonlight PC
+# Moonlight PC v6.2.0 — Windows 日本語キーボード修正版
+
+公式 [v6.2.0](https://github.com/moonlight-stream/moonlight-qt/releases/tag/v6.2.0)（`de2467e433821664cdd2224aad8c89a625be1ad9`）をベースに、以前の v6.1.0 フォークの日本語入力補正を移植した非公式版です。公式版で日本語入力中の連続入力が報告されたため、2026-10-07 にこのフォークの配布を再開しました。以前のブランチと Release は履歴として残しています。
+
+## 修正版のダウンロード
+
+[最新版の Release](https://github.com/hinatamaxxx/moonlight-qt/releases/latest) から `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip` をダウンロードして展開し、`Moonlight.exe` を起動してください。Windows x64 向け Portable 版です。
+
+## v6.2.0 への移植内容
+
+- 旧フォークの半角／全角キーの押下・解放補正を、v6.2.0 の押下中キー管理に統合しました。日本語配列の Windows クライアントにのみ適用し、英語配列のバッククォートや他 OS のイベントは公式の処理を維持します。
+- 旧フォークの `SDL_SCANCODE_NONUSBACKSLASH` に対する送信フラグを復元しました。`¥` と `ろ/_` のマッピング・送信フラグは公式 v6.2.0 に既に入っているため、その実装を使っています。
+- v6.2.0 の拡張キーのフラグと、フォーカス喪失・入力キャプチャ解除時のキー解放処理を維持しています。
+- GitHub Actions のビルドを v6.2.0 の依存ライブラリ・Qt に更新しました。
+
+## 確認範囲と制限
+
+実際の入力ハンドラーを使う自動テストで、日本語配列の半角／全角の反転イベント、連続した切り替えと文字入力、英語配列、キーリピートの除外、`¥`・`ろ/_`、変換・無変換、拡張キー、フォーカス喪失時のキー解放を確認しています。テストでは送信イベントを記録し、接続先には送信しません。
+
+**実機の Sunshine 接続と Microsoft IME／Google 日本語入力での再現・解消確認は未実施です。** この版は旧フォークの動作を最新公式版に移植したもので、報告された連続入力がすべての環境で解消するとはまだ確認できていません。旧版で既知だった半角／全角の長押しによる高速切り替えも、今回の移植で解消したとは確認できていません。
+
+確認する場合は、普段の接続先で半角／全角を切り替えながら日本語を入力し、確定・変換、`¥`、`_`、変換・無変換、入力中の Alt+Tab 後にキーが押しっぱなしにならないことを試してください。
+
+自動テストの再実行: サブモジュールと `setup-deps.ps1` の依存ライブラリを取得後、リポジトリのルートから `tests\run-keyboard-regression.bat` を実行します（Visual Studio の C++ ビルドツールと Python が必要）。
+
+---
+
+# Moonlight PC (upstream documentation)
 
 [Moonlight PC](https://moonlight-stream.org) is an open source PC client for NVIDIA GameStream and [Sunshine](https://github.com/LizardByte/Sunshine).
 

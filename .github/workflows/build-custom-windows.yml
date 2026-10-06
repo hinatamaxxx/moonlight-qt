@@ -1,0 +1,53 @@
+name: Build Custom Windows
+
+on:
+  push:
+    branches:
+      - jp-keyboard-v6.2.0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-2025
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Download upstream dependencies
+        run: powershell ./setup-deps.ps1
+
+      - name: Test Japanese keyboard event handling
+        shell: cmd
+        run: tests\run-keyboard-regression.bat
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.12.0
+          arch: win64_msvc2022_64
+          tools: tools_qtcreator_gui
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@073e34d7c2ab4ae6961ed7cca690b3abd5ba5a7e'
+          cache: true
+          set-env: false
+          add-tools-to-path: false
+
+      - name: Build x64 portable package
+        shell: cmd
+        run: |
+          set "PATH=%QT_PATH%;%PATH%"
+          scripts\build-arch.bat Release x64
+        env:
+          QT_PATH: ${{ runner.workspace }}\Qt\6.12.0\msvc2022_64\bin
+
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v6
+        with:
+          name: MoonlightPortable-Windows-x64-jp-keyboard-6.2.0
+          path: build/installer-x64-release/MoonlightPortable-x64-6.2.0.zip
+          if-no-files-found: error
+          compression-level: 0
