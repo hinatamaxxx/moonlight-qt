@@ -1,27 +1,26 @@
-# Moonlight PC v6.2.0 — Windows 日本語キーボード修正版
+# Moonlight PC v6.2.0 - 旧版のキーボード処理
 
-公式 [v6.2.0](https://github.com/moonlight-stream/moonlight-qt/releases/tag/v6.2.0)（`de2467e433821664cdd2224aad8c89a625be1ad9`）をベースに、以前の v6.1.0 フォークの日本語入力補正を移植した非公式版です。公式版で日本語入力中の連続入力が報告されたため、2026-10-07 にこのフォークの配布を再開しました。以前のブランチと Release は履歴として残しています。
+Moonlight v6.2.0をベースに、キーボードの入力処理を以前のv6.1.0フォークへ戻した非公式Windows x64版です。
 
-## 修正版のダウンロード
+キーの割り当て、送信フラグ、半角／全角キーの押下・解放反転を旧版にそろえています。旧版と同じく、反転処理は日本語配列以外や他のOSでも適用されます。v6.2.0のストリーミング操作とキー解放管理は維持しています。旧版以降に追加された変換・無変換キーの割り当てと拡張キーのフラグは、この入力処理では使いません。
 
-[最新版の Release](https://github.com/hinatamaxxx/moonlight-qt/releases/latest) から `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip` をダウンロードして展開し、`Moonlight.exe` を起動してください。Windows x64 向け Portable 版です。
+既存の[v6.2.0リリース](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.1)のZIPは変更前のものです。更新したソースのビルドは、[Build Custom Windowsの成功した実行](https://github.com/hinatamaxxx/moonlight-qt/actions/workflows/build-custom-windows.yml)から取得できます。
 
-## v6.2.0 への移植内容
+送信イベントを記録するテストで旧版との一致とフォーカス喪失時のキー解放を確認しています。実際のSunshine接続とMicrosoft IME／Google日本語入力での動作は未確認です。半角／全角の長押しでIMEが高速に切り替わる旧版の問題は残る可能性があります。現在のコピーを置き換える前に、別フォルダで試してください。
 
-- 旧フォークの半角／全角キーの押下・解放補正を、v6.2.0 の押下中キー管理に統合しました。日本語配列の Windows クライアントにのみ適用し、英語配列のバッククォートや他 OS のイベントは公式の処理を維持します。
-- 旧フォークの `SDL_SCANCODE_NONUSBACKSLASH` に対する送信フラグを復元しました。`¥` と `ろ/_` のマッピング・送信フラグは公式 v6.2.0 に既に入っているため、その実装を使っています。
-- v6.2.0 の拡張キーのフラグと、フォーカス喪失・入力キャプチャ解除時のキー解放処理を維持しています。
-- GitHub Actions のビルドを v6.2.0 の依存ライブラリ・Qt に更新しました。
+実装支援：OpenAI Codex。詳細なモデル名と推論設定は記録していません。
 
-## 確認範囲と制限
+## English
 
-実際の入力ハンドラーを使う自動テストで、日本語配列の半角／全角の反転イベント、連続した切り替えと文字入力、英語配列、キーリピートの除外、`¥`・`ろ/_`、変換・無変換、拡張キー、フォーカス喪失時のキー解放を確認しています。テストでは送信イベントを記録し、接続先には送信しません。
+This unofficial Windows x64 fork keeps Moonlight v6.2.0 and restores the keyboard event handling from the v6.1.0 fork (commit `c13f4a21507b5097d48d9e643b162786336ce982`).
 
-**実機の Sunshine 接続と Microsoft IME／Google 日本語入力での再現・解消確認は未実施です。** この版は旧フォークの動作を最新公式版に移植したもので、報告された連続入力がすべての環境で解消するとはまだ確認できていません。旧版で既知だった半角／全角の長押しによる高速切り替えも、今回の移植で解消したとは確認できていません。
+The source branch now uses the previous key mappings, transmission flags, and unconditional Hankaku/Zenkaku event reversal. This also restores the previous behavior on non-Japanese layouts and other platforms. The v6.2.0 stream controls and held-key release mechanism remain available. Conversion-key mappings and extended-key flags added after the old fork are no longer applied by this handler.
 
-確認する場合は、普段の接続先で半角／全角を切り替えながら日本語を入力し、確定・変換、`¥`、`_`、変換・無変換、入力中の Alt+Tab 後にキーが押しっぱなしにならないことを試してください。
+The existing [v6.2.0 release](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.1) predates this restoration. Its ZIP has not been replaced. Builds of the updated source are available from successful [Build Custom Windows runs](https://github.com/hinatamaxxx/moonlight-qt/actions/workflows/build-custom-windows.yml).
 
-自動テストの再実行: サブモジュールと `setup-deps.ps1` の依存ライブラリを取得後、リポジトリのルートから `tests\run-keyboard-regression.bat` を実行します（Visual Studio の C++ ビルドツールと Python が必要）。
+Input-event parity with the old handler and focus-loss key release are checked with a captured transport. Live Sunshine streaming and Microsoft IME/Google Japanese Input behavior have not been verified. The old issue with rapid IME toggling when holding Hankaku/Zenkaku may remain. Test the build in a separate folder before replacing your current copy.
+
+Implementation assistance: OpenAI Codex. Exact model variant and reasoning setting were not recorded.
 
 ---
 

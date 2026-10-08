@@ -1,7 +1,7 @@
 #include "streaming/session.h"
 
 #include <Limelight.h>
-#include "SDL_compat.h"
+#include <SDL.h>
 
 #define VK_0 0x30
 #define VK_A 0x41
@@ -12,15 +12,6 @@
 #define VK_F13 0x7C
 #define VK_NUMPAD0 0x60
 #endif
-
-#define MAKE_KEYPRESS_STATE(code, modifiers, flags) \
-    ((uint32_t)(uint16_t)(code) | \
-    ((uint32_t)(uint8_t)((modifiers) & MODIFIER_EXTENDED) << 16) | \
-    ((uint32_t)(uint8_t)(flags) << 24))
-
-#define GET_KEYPRESS_CODE(x) ((short)((x) & 0xFFFF))
-#define GET_KEYPRESS_EXTENDED_MODIFIER(x) ((char)(((x) >> 16) & 0xFF))
-#define GET_KEYPRESS_FLAGS(x) ((char)(((x) >> 24) & 0xFF))
 
 void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
 {
@@ -148,42 +139,11 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         updatePointerRegionLock();
         break;
 
-    case KeyComboQuitAndExit:
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Detected quitAndExit key combo");
-
-        // Indicate that we want to exit afterwards
-        Session::get()->setShouldExit(true);
-
-        // Push a quit event to the main loop
-        SDL_Event quitExitEvent;
-        quitExitEvent.type = SDL_QUIT;
-        quitExitEvent.quit.timestamp = SDL_GetTicks();
-        SDL_PushEvent(&quitExitEvent);
-        break;
-
-    case KeyComboToggleKeyboardGrab:
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Detected keyboard grab toggle combo");
-
-        // Toggle the system key capture mode
-        if (isSystemKeyCaptureActive()) {
-            m_CaptureSystemKeysMode = StreamingPreferences::CSK_OFF;
-        }
-        else {
-            m_CaptureSystemKeysMode = StreamingPreferences::CSK_ALWAYS;
-        }
-
-        updateKeyboardGrabState();
-        break;
-
     default:
         Q_UNREACHABLE();
     }
 }
 
-// Restore the v6.1.0 fork event behavior. Only held-key storage is
-// adapted to the v6.2.0 raiseAllKeys() representation.
 void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
 {
     short keyCode;
@@ -440,14 +400,14 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
             case SDL_SCANCODE_GRAVE:
                 keyCode = 0xC0;
                 if (event->state == SDL_PRESSED) {
-                    m_KeysDown.remove(MAKE_KEYPRESS_STATE(0x8000 | keyCode, modifiers, shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0));
+                    m_KeysDown.remove(keyCode);
                     LiSendKeyboardEvent2(0x8000 | keyCode,
                                          KEY_ACTION_UP,
                                          modifiers,
                                          0);
                 }
                 else {
-                    m_KeysDown.insert(MAKE_KEYPRESS_STATE(0x8000 | keyCode, modifiers, shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0));
+                    m_KeysDown.insert(keyCode);
                     LiSendKeyboardEvent2(0x8000 | keyCode,
                                          KEY_ACTION_DOWN,
                                          modifiers,
@@ -485,10 +445,10 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
 
     // Track the key state so we always know which keys are down
     if (event->state == SDL_PRESSED) {
-        m_KeysDown.insert(MAKE_KEYPRESS_STATE(0x8000 | keyCode, modifiers, shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0));
+        m_KeysDown.insert(keyCode);
     }
     else {
-        m_KeysDown.remove(MAKE_KEYPRESS_STATE(0x8000 | keyCode, modifiers, shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0));
+        m_KeysDown.remove(keyCode);
     }
 
     LiSendKeyboardEvent2(0x8000 | keyCode,
@@ -496,24 +456,4 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                              KEY_ACTION_DOWN : KEY_ACTION_UP,
                          modifiers,
                          shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0);
-}
-
-void SdlInputHandler::raiseAllKeys()
-{
-    if (m_KeysDown.isEmpty()) {
-        return;
-    }
-
-    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                "Raising %d keys",
-                (int)m_KeysDown.count());
-
-    for (auto keyDown : std::as_const(m_KeysDown)) {
-        LiSendKeyboardEvent2(GET_KEYPRESS_CODE(keyDown),
-                             KEY_ACTION_UP,
-                             GET_KEYPRESS_EXTENDED_MODIFIER(keyDown),
-                             GET_KEYPRESS_FLAGS(keyDown));
-    }
-
-    m_KeysDown.clear();
 }

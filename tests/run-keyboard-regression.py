@@ -57,113 +57,93 @@ public:
 };
 '''
 
+legacy = (root / "tests/fixtures/keyboard-v6.1.0.cpp").read_text()
+legacy = legacy[legacy.index("void SdlInputHandler::handleKeyEvent"):].replace("SdlInputHandler::", "LegacyInputHandler::")
+legacy_class = prefix[prefix.index("class SdlInputHandler"):].replace("SdlInputHandler", "LegacyInputHandler").replace("TestSet<uint32_t>", "TestSet<short>")
+legacy += r"""
+void LegacyInputHandler::raiseAllKeys() {
+    for (auto key : m_KeysDown) LiSendKeyboardEvent2(0x8000 | key, KEY_ACTION_UP, 0, 0);
+    m_KeysDown.clear();
+}
+"""
+
 tests = r'''
-static void input(SdlInputHandler& handler, SDL_Scancode code, Uint8 state, Uint8 repeat = 0, Uint16 mod = 0) {
+static void compareInput(SdlInputHandler& current, LegacyInputHandler& old,
+                         SDL_Scancode scan, Uint8 state, Uint16 mod, Uint8 repeat = 0) {
     SDL_KeyboardEvent event{};
     event.state = state;
     event.repeat = repeat;
-    event.keysym.scancode = code;
+    event.keysym.scancode = scan;
     event.keysym.mod = mod;
-    handler.handleKeyEvent(&event);
-}
-static void expectKey(size_t index, int code, char action, char flags = 0, char modifiers = 0) {
-    assert(index < sent.size());
-    assert(static_cast<unsigned short>(sent[index].code) == (0x8000 | code));
-    assert(sent[index].action == action);
-    assert(sent[index].flags == flags);
-    assert(sent[index].modifiers == modifiers);
+    sent.clear();
+    old.handleKeyEvent(&event);
+    auto expected = sent;
+    sent.clear();
+    current.handleKeyEvent(&event);
+    assert(sent.size() == expected.size());
+    for (size_t i = 0; i < sent.size(); ++i) {
+        assert(sent[i].code == expected[i].code);
+        assert(sent[i].action == expected[i].action);
+        assert(sent[i].modifiers == expected[i].modifiers);
+        assert(sent[i].flags == expected[i].flags);
+    }
+    std::set<short> held;
+    for (auto key : current.m_KeysDown) held.insert(GET_KEYPRESS_CODE(key) & 0x7FFF);
+    assert(held == static_cast<const std::set<short>&>(old.m_KeysDown));
 }
 int main() {
-    // Reversed Windows JIS toggle sequence must finish with no held key.
-    SdlInputHandler jis;
-    input(jis, SDL_SCANCODE_GRAVE, SDL_RELEASED);
-    input(jis, SDL_SCANCODE_GRAVE, SDL_PRESSED);
-#ifdef Q_OS_WIN
-    expectKey(0, 0xC0, KEY_ACTION_DOWN);
-    expectKey(1, 0xC0, KEY_ACTION_UP);
-#else
-    expectKey(0, 0xC0, KEY_ACTION_UP);
-    expectKey(1, 0xC0, KEY_ACTION_DOWN);
-    jis.raiseAllKeys();
-#endif
-    assert(jis.m_KeysDown.empty());
-    sent.clear();
-
-    // Focus loss must release a corrected JIS press through v6.2.0 tracking.
-#ifdef Q_OS_WIN
-    input(jis, SDL_SCANCODE_GRAVE, SDL_RELEASED);
-    assert(jis.m_KeysDown.size() == 1);
-    jis.raiseAllKeys();
-    expectKey(1, 0xC0, KEY_ACTION_UP);
-    assert(jis.m_KeysDown.empty());
-    sent.clear();
-#endif
-
-    // US backtick remains a normal down/up pair even on Windows.
-    testLayout = 0x0409;
-    input(jis, SDL_SCANCODE_GRAVE, SDL_PRESSED);
-    input(jis, SDL_SCANCODE_GRAVE, SDL_RELEASED);
-    expectKey(0, 0xC0, KEY_ACTION_DOWN);
-    expectKey(1, 0xC0, KEY_ACTION_UP);
-    assert(jis.m_KeysDown.empty());
-    sent.clear();
-    testLayout = 0x0411;
-
-    // Test many toggles and normal text interleaved without lingering keys.
+    // Differential oracle: unmodified handler from fork commit c13f4a21507b.
+    const Uint16 mods[] = {0, KMOD_SHIFT, KMOD_CTRL, KMOD_ALT, KMOD_GUI,
+                          KMOD_CTRL | KMOD_ALT | KMOD_SHIFT};
+    for (auto mod : mods) {
+        for (int scan = 0; scan < SDL_NUM_SCANCODES; ++scan) {
+            SdlInputHandler current;
+            LegacyInputHandler old;
+            compareInput(current, old, static_cast<SDL_Scancode>(scan), SDL_PRESSED, mod);
+            compareInput(current, old, static_cast<SDL_Scancode>(scan), SDL_PRESSED, mod, 1);
+            compareInput(current, old, static_cast<SDL_Scancode>(scan), SDL_RELEASED, mod);
+            compareInput(current, old, static_cast<SDL_Scancode>(scan), SDL_PRESSED, 0);
+        }
+    }
+    // Corrected JIS sequences and interleaved text leave no stuck keys.
+    SdlInputHandler current;
+    LegacyInputHandler old;
     for (int i = 0; i < 50; ++i) {
-        input(jis, SDL_SCANCODE_GRAVE, SDL_RELEASED);
-        input(jis, SDL_SCANCODE_GRAVE, SDL_PRESSED);
-        input(jis, SDL_SCANCODE_A, SDL_PRESSED);
-        input(jis, SDL_SCANCODE_A, SDL_PRESSED, 1);
-        input(jis, SDL_SCANCODE_A, SDL_RELEASED);
-#ifndef Q_OS_WIN
-        jis.raiseAllKeys();
-#endif
-        assert(jis.m_KeysDown.empty());
+        compareInput(current, old, SDL_SCANCODE_GRAVE, SDL_RELEASED, 0);
+        compareInput(current, old, SDL_SCANCODE_GRAVE, SDL_PRESSED, 0);
+        compareInput(current, old, SDL_SCANCODE_A, SDL_PRESSED, 0);
+        compareInput(current, old, SDL_SCANCODE_A, SDL_RELEASED, 0);
+        assert(current.m_KeysDown.empty());
     }
-#ifdef Q_OS_WIN
-    assert(sent.size() == 200);
-#endif
-    sent.clear();
-
-    // JIS yen, ro/underscore, and legacy ISO mapping retain protocol flags.
-    const SDL_Scancode special[] = {SDL_SCANCODE_INTERNATIONAL3, SDL_SCANCODE_INTERNATIONAL1, SDL_SCANCODE_NONUSBACKSLASH};
-    for (auto scan : special) {
-        input(jis, scan, SDL_PRESSED, 0, KMOD_SHIFT);
-        jis.raiseAllKeys();
-        int vk = scan == SDL_SCANCODE_INTERNATIONAL3 ? 0xDC : 0xE2;
-        expectKey(0, vk, KEY_ACTION_DOWN, SS_KBE_FLAG_NON_NORMALIZED, MODIFIER_SHIFT);
-        expectKey(1, vk, KEY_ACTION_UP, SS_KBE_FLAG_NON_NORMALIZED);
-        assert(jis.m_KeysDown.empty());
+    // v6.2.0 focus-loss release must retain the code and flags of each press.
+    const SDL_Scancode keys[] = {SDL_SCANCODE_GRAVE, SDL_SCANCODE_A,
+        SDL_SCANCODE_INTERNATIONAL1, SDL_SCANCODE_INTERNATIONAL3,
+        SDL_SCANCODE_NONUSBACKSLASH, SDL_SCANCODE_RCTRL};
+    for (auto scan : keys) {
+        SDL_KeyboardEvent event{};
+        event.keysym.scancode = scan;
+        event.state = scan == SDL_SCANCODE_GRAVE ? SDL_RELEASED : SDL_PRESSED;
         sent.clear();
+        current.handleKeyEvent(&event);
+        assert(sent.size() == 1);
+        auto down = sent[0];
+        assert(down.action == KEY_ACTION_DOWN);
+        current.raiseAllKeys();
+        assert(sent.size() == 2);
+        assert(sent[1].code == down.code);
+        assert(sent[1].flags == down.flags);
+        assert(sent[1].action == KEY_ACTION_UP);
+        assert(current.m_KeysDown.empty());
     }
-
-    // Upstream extended keys and conversion mappings must still work.
-    input(jis, SDL_SCANCODE_RCTRL, SDL_PRESSED);
-    jis.raiseAllKeys();
-    expectKey(0, 0xA3, KEY_ACTION_DOWN, 0, MODIFIER_EXTENDED);
-    expectKey(1, 0xA3, KEY_ACTION_UP, 0, MODIFIER_EXTENDED);
-    sent.clear();
-    input(jis, SDL_SCANCODE_LANG1, SDL_PRESSED);
-    input(jis, SDL_SCANCODE_LANG1, SDL_RELEASED);
-    input(jis, SDL_SCANCODE_LANG2, SDL_PRESSED);
-    input(jis, SDL_SCANCODE_LANG2, SDL_RELEASED);
-    expectKey(0, 0x1C, KEY_ACTION_DOWN);
-    expectKey(1, 0x1C, KEY_ACTION_UP);
-    expectKey(2, 0x1D, KEY_ACTION_DOWN);
-    expectKey(3, 0x1D, KEY_ACTION_UP);
-    assert(jis.m_KeysDown.empty());
-    sent.clear();
-    jis.raiseAllKeys();
-    assert(sent.empty());
-    puts("Keyboard regression checks passed (captured transport; no live IME host).");
+    puts("Legacy parity: all SDL scancodes, modifiers, repeats and JIS sequences passed.");
+    puts("v6.2.0 focus-loss key release passed (captured transport; no live IME host).");
 }
 '''
 
 with tempfile.TemporaryDirectory(prefix="moonlight-keyboard-") as temp:
     build = Path(temp)
     cpp = build / "keyboard-regression.cpp"
-    cpp.write_text(prefix + definitions + handler + tests)
+    cpp.write_text(prefix + definitions + handler + legacy_class + legacy + tests)
     includes = [root / "libs/windows/include/x64/SDL2", root / "moonlight-common-c/moonlight-common-c/src"]
     for mode in ("windows-jis", "upstream-platform"):
         exe = build / f"{mode}.exe"
