@@ -4,7 +4,7 @@ Moonlight v6.2.0をベースに、キーボードの入力処理を以前のv6.1
 
 キーの割り当て、送信フラグ、半角／全角キーの押下・解放反転を旧版にそろえています。旧版と同じく、反転処理は日本語配列以外や他のOSでも適用されます。v6.2.0のストリーミング操作とキー解放管理は維持しています。旧版以降に追加された変換・無変換キーの割り当てと拡張キーのフラグは、この入力処理では使いません。
 
-既存の[v6.2.0リリース](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.1)のZIPは変更前のものです。更新したソースのビルドは、[Build Custom Windowsの成功した実行](https://github.com/hinatamaxxx/moonlight-qt/actions/workflows/build-custom-windows.yml)から取得できます。
+[修正版リリース](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.2)のAssetsから`MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip`をダウンロードし、新しいフォルダへ展開して`Moonlight.exe`を起動してください。Windows x64向けのPortable版で、インストールは不要です。
 
 送信イベントを記録するテストで旧版との一致とフォーカス喪失時のキー解放を確認しています。実際のSunshine接続とMicrosoft IME／Google日本語入力での動作は未確認です。半角／全角の長押しでIMEが高速に切り替わる旧版の問題は残る可能性があります。現在のコピーを置き換える前に、別フォルダで試してください。
 
@@ -16,7 +16,7 @@ This unofficial Windows x64 fork keeps Moonlight v6.2.0 and restores the keyboar
 
 The source branch now uses the previous key mappings, transmission flags, and unconditional Hankaku/Zenkaku event reversal. This also restores the previous behavior on non-Japanese layouts and other platforms. The v6.2.0 stream controls and held-key release mechanism remain available. Conversion-key mappings and extended-key flags added after the old fork are no longer applied by this handler.
 
-The existing [v6.2.0 release](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.1) predates this restoration. Its ZIP has not been replaced. Builds of the updated source are available from successful [Build Custom Windows runs](https://github.com/hinatamaxxx/moonlight-qt/actions/workflows/build-custom-windows.yml).
+Download `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip` from the [updated release](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.2), extract it into a new folder, and run `Moonlight.exe`. This is a Windows x64 Portable build; no installation is required.
 
 Input-event parity with the old handler and focus-loss key release are checked with a captured transport. Live Sunshine streaming and Microsoft IME/Google Japanese Input behavior have not been verified. The old issue with rapid IME toggling when holding Hankaku/Zenkaku may remain. Test the build in a separate folder before replacing your current copy.
 
