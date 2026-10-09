@@ -100,7 +100,10 @@ through Sunshine, including conversion, missing characters and key repetition.
 Remote Desktop, software keyboards and third-party injected input have not
 been qualified with the Raw Input path.
 
-fix.5 contains the DBE correction. Live host IME toggling with fix.5 still needs
-user confirmation; the earlier fix.4 typing confirmation does not cover it.
-Use fix.3 or `setup-deps.ps1 -UseClassicSdl` as a comparison/fallback.
+fix.5 contains the DBE correction. On 2026-10-10, the user tested fix.5 on the
+Windows 11 client/host and explicitly confirmed that both half/full-width
+toggling and Japanese typing were normal. This is a live user confirmation,
+not an automated Sunshine/IME test or validation of every keyboard/device.
+fix.5 is the final release; old releases are removed except v6.1. Source history
+and `setup-deps.ps1 -UseClassicSdl` preserve the classic comparison option.
 Other dependencies remain v19.
