@@ -1,3 +1,5 @@
+param([switch]$UseUpstreamSdl)
+
 $ErrorActionPreference = 'Stop'
 
 $Organization = "moonlight-stream"
@@ -6,9 +8,15 @@ $TargetDir = Join-Path $PSScriptRoot "libs\windows"
 $Assets = @("windows-x64.zip", "windows-ARM64.zip")
 $Tag = "v19"
 
+# This script only clears the dependency directory inside this checkout.
+$TaskExpectedTarget = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'libs\windows'))
+if ([IO.Path]::GetFullPath($TargetDir) -ne $TaskExpectedTarget) { throw 'Unexpected dependency target' }
+
 if (Test-Path $TargetDir) {
     Write-Host "Cleaning target directory..." -ForegroundColor Cyan
-    Remove-Item -Path "$TargetDir\*" -Recurse -Force
+    Get-ChildItem -LiteralPath $TargetDir -Force | ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Recurse -Force
+    }
 } else {
     New-Item -ItemType Directory -Path $TargetDir | Out-Null
 }
@@ -26,6 +34,11 @@ foreach ($AssetName in $Assets) {
     Write-Host "Extracting $AssetName..." -ForegroundColor Cyan
     Expand-Archive -Path $ArchivePath -DestinationPath $TargetDir -Force
     Remove-Item $ArchivePath
+}
+
+if (-not $UseUpstreamSdl) {
+    # Only Windows x64 is covered by the JIS runtime workaround and live test.
+    & (Join-Path $PSScriptRoot 'scripts\install-classic-sdl.ps1') -RuntimeDirectory (Join-Path $TargetDir 'lib\x64')
 }
 
 Write-Host "Dependencies successfully deployed" -ForegroundColor Green

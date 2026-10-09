@@ -44,6 +44,9 @@ jobs:
         env:
           QT_PATH: ${{ runner.workspace }}\Qt\6.12.0\msvc2022_64\bin
 
+      - name: Verify classic SDL runtime and portable startup
+        run: python tests/verify-classic-sdl-package.py --package build/installer-x64-release/MoonlightPortable-x64-6.2.0.zip
+
       - name: Upload portable zip
         uses: actions/upload-artifact@v6
         with:

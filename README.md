@@ -1,24 +1,36 @@
-# Moonlight PC v6.2.0 - 旧版のキーボード処理
+# Moonlight PC v6.2.0 - 日本語入力修正版
 
-Moonlight v6.2.0をベースに、キーボードの入力処理を以前のv6.1.0フォークへ戻した非公式Windows x64版です。
+Moonlight v6.2.0をベースに、日本語入力中の文字連打・文字抜けを改善する非公式Windows x64版です。旧フォークのキーボード処理に加え、実行時の`SDL2.dll`を正常だったv6.1.0修正版と同じclassic SDL 2.31.0へ固定します。公式v6.2.0の依存ライブラリにあるsdl2-compat／SDL3経由の入力処理を回避します。
 
 キーの割り当て、送信フラグ、半角／全角キーの押下・解放反転を旧版にそろえています。旧版と同じく、反転処理は日本語配列以外や他のOSでも適用されます。v6.2.0のストリーミング操作とキー解放管理は維持しています。旧版以降に追加された変換・無変換キーの割り当てと拡張キーのフラグは、この入力処理では使いません。
 
-[修正版リリース](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.2)のAssetsから`MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip`をダウンロードし、新しいフォルダへ展開して`Moonlight.exe`を起動してください。Windows x64向けのPortable版で、インストールは不要です。
+[最新の修正版リリース](https://github.com/hinatamaxxx/moonlight-qt/releases/latest)のAssetsから`MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip`をダウンロードし、新しいフォルダへ展開して`Moonlight.exe`を起動してください。Windows x64向けのPortable版で、インストールは不要です。
 
-送信イベントを記録するテストで旧版との一致とフォーカス喪失時のキー解放を確認しています。実際のSunshine接続とMicrosoft IME／Google日本語入力での動作は未確認です。半角／全角の長押しでIMEが高速に切り替わる旧版の問題は残る可能性があります。現在のコピーを置き換える前に、別フォルダで試してください。
+2026-10-09、Windows 11クライアント→Windows 11ホストで、使用者から日本語入力の連打・文字抜けが改善したとの報告がありました。確認したIME製品・バージョンは記録していません。他の環境での改善や、SDL3側の具体的な原因は未確認です。半角／全角の長押しでIMEが高速に切り替わる旧版の問題は残る可能性があります。
+
+送信イベントの旧版との一致とフォーカス喪失時のキー解放に加え、配布ZIPのSDL2.dllのSHA256、x64形式、非表示ウィンドウ作成、SDL_ttf初期化、Moonlightの起動を自動確認します。設定・ペアリング情報は配布ZIPに含めません。
+
+## ライブラリの変更と制約
+
+`SDL2.dll`だけを旧版へ固定し、Moonlight本体・映像デコード・OpenSSLなどはv6.2.0の構成を使います。現在のSDL3系のコントローラー対応や、後続SDL2のクラッシュ修正などは取り込めません。SDL2の開発スナップショットを固定するため、将来の修正を自動では受け取れません。[SDL公式はSDL3への移行を推奨しています](https://github.com/libsdl-org/SDL/releases/tag/release-2.32.0)。この回避策は長期的な保守の代わりにはなりません。
+
+使用するバイナリの由来は[Moonlightの旧依存ライブラリコミット](https://github.com/cgutman/moonlight-qt-prebuilts/commit/a27d6a7995ef504963fa9058c69e6ba1b449cc0f)（SDLソース`10b4a79379d226041781d0a825da79a296af715f`、2024-09-02）です。旧配布ZIPとDLLの両方をSHA256で検証します。[SDLの公開セキュリティ情報](https://github.com/libsdl-org/SDL/security)と[libsdl2のCVE記録](https://security-tracker.debian.org/tracker/source-package/libsdl2)を確認しましたが、このWindows x64スナップショットに未修正で該当する既知のCVEは確認できていません。独立したバイナリ監査は行っておらず、安全性を保証するものではありません。
+
+Windows x64の通常ビルドは`powershell ./setup-deps.ps1`で同じDLLを導入します。固定内容は`scripts/classic-sdl.json`にあります。SDL3経由の動作を調査する場合は`powershell ./setup-deps.ps1 -UseUpstreamSdl`で上流の依存構成に戻せます。ARM64とmacOSにはこのDLL変更を適用しません。
 
 実装支援：OpenAI Codex。詳細なモデル名と推論設定は記録していません。
 
 ## English
 
-This unofficial Windows x64 fork keeps Moonlight v6.2.0 and restores the keyboard event handling from the v6.1.0 fork (commit `c13f4a21507b5097d48d9e643b162786336ce982`).
+This unofficial Windows x64 fork keeps Moonlight v6.2.0, restores keyboard event handling from the v6.1.0 fork (commit `c13f4a21507b5097d48d9e643b162786336ce982`), and pins the runtime SDL2.dll to the same classic SDL 2.31.0 binary as that release. This bypasses the sdl2-compat/SDL3 input backend.
 
 The source branch now uses the previous key mappings, transmission flags, and unconditional Hankaku/Zenkaku event reversal. This also restores the previous behavior on non-Japanese layouts and other platforms. The v6.2.0 stream controls and held-key release mechanism remain available. Conversion-key mappings and extended-key flags added after the old fork are no longer applied by this handler.
 
-Download `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip` from the [updated release](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.2), extract it into a new folder, and run `Moonlight.exe`. This is a Windows x64 Portable build; no installation is required.
+Download `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip` from the [latest release](https://github.com/hinatamaxxx/moonlight-qt/releases/latest), extract it into a new folder, and run `Moonlight.exe`. This is a Windows x64 Portable build; no installation is required.
 
-Input-event parity with the old handler and focus-loss key release are checked with a captured transport. Live Sunshine streaming and Microsoft IME/Google Japanese Input behavior have not been verified. The old issue with rapid IME toggling when holding Hankaku/Zenkaku may remain. Test the build in a separate folder before replacing your current copy.
+On 2026-10-09, the user reported improved Japanese typing on a Windows 11 client and Windows 11 host. The IME product/version was not recorded. This is one environment; the underlying SDL3 bug is not isolated. Tests cover input-event parity, focus-loss release, the pinned DLL hash, x64 format, hidden-window creation, SDL_ttf and Moonlight startup. The old issue with rapid IME toggling when holding Hankaku/Zenkaku may remain.
+
+Only the x64 SDL2 runtime is pinned. Other dependencies stay on the v6.2.0 dependency set. New SDL3 device support and later SDL2 bug fixes are unavailable; the fixed 2024 development snapshot does not receive automatic maintenance. No known unresolved CVE applicable to this Windows snapshot was identified in the public records reviewed, but this is not a binary security audit. SDL upstream recommends migration to SDL3. Use `setup-deps.ps1 -UseUpstreamSdl` to investigate the upstream backend. ARM64/macOS are unchanged by the runtime pin.
 
 Implementation assistance: OpenAI Codex. Exact model variant and reasoning setting were not recorded.
 

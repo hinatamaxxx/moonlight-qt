@@ -1,0 +1,9 @@
+{
+  "version": "2.31.0",
+  "architecture": "x64",
+  "upstreamSourceCommit": "10b4a79379d226041781d0a825da79a296af715f",
+  "prebuiltCommit": "a27d6a7995ef504963fa9058c69e6ba1b449cc0f",
+  "archiveUrl": "https://github.com/hinatamaxxx/moonlight-qt/releases/download/v6.1.0-jp-keyboard-fix.1/MoonlightPortable-Windows-x64-jp-keyboard-v6.1.0.zip",
+  "archiveSha256": "5730b2be62478c1e46105f24647c891949ac78542e0c3737e419cb5045da565e",
+  "dllSha256": "65a7f2ca0ec9db3a22bbbdc1bf6c1d910af13a20f569cee3a18647e3326c1d04"
+}
