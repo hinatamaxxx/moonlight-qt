@@ -1526,6 +1526,7 @@ void Session::toggleFullscreen()
 
     // Actually enter/leave fullscreen
     SDL_SetWindowFullscreen(m_Window, fullScreen ? m_FullScreenFlag : 0);
+    WindowsKeyboardInput::disableLocalIme(m_Window);
 
 #ifdef Q_OS_DARWIN
     // SDL on macOS has a bug that causes the window size to be reset to crazy
@@ -1909,6 +1910,7 @@ void Session::exec()
     // Enter full screen if requested
     if (m_IsFullScreen) {
         SDL_SetWindowFullscreen(m_Window, m_FullScreenFlag);
+        WindowsKeyboardInput::disableLocalIme(m_Window);
     }
 
     bool needsFirstEnterCapture = false;
@@ -2225,6 +2227,10 @@ void Session::exec()
                     emit displayLaunchError(tr("Unable to initialize video decoder. Please check your streaming settings and try again."));
                     goto DispatchDeferredCleanup;
                 }
+
+                // Decoder creation can replace the HWND without changing SDL's
+                // logical keyboard focus, so don't rely only on FOCUS_GAINED.
+                WindowsKeyboardInput::disableLocalIme(m_Window);
 
                 // As of SDL 2.0.12, SDL_RecreateWindow() doesn't carry over mouse capture
                 // or mouse hiding state to the new window. By capturing after the decoder

@@ -42,7 +42,8 @@ windows; its other Windows keyboard/TSF behavior differs from SDL3.
   forwards physical make/break input instead of the normal WM_KEY path, where
   a client IME can consume or modify messages.
 * Use [ImmAssociateContextEx](https://learn.microsoft.com/en-us/windows/win32/api/imm/nf-imm-immassociatecontextex)
-  with a null context on the actual stream HWND at assignment and focus gain.
+  with a null context on the actual stream HWND at assignment, focus gain,
+  fullscreen transitions and after decoder creation.
   Query the HWND each time because fullscreen transitions can replace it.
   This affects the SDL streaming window, not the Qt connection UI or the host.
 * In Raw Input mode, send Hankaku/Zenkaku in physical down/up order. Do not

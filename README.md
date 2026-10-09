@@ -4,7 +4,7 @@ Moonlight v6.2.0をベースにした非公式Windows x64版です。現在の�
 
 キーの割り当てと送信フラグは旧フォークを維持しています。SDL3のRaw Inputでは半角／全角キーも物理的な押下→解放の順に送ります。旧版用の押下・解放反転をそのまま適用するとキーが押しっぱなしになるため、この経路では反転しません。classic SDL2と他のOSの従来の処理は維持しています。
 
-[最新の修正版リリース](https://github.com/hinatamaxxx/moonlight-qt/releases/latest)のAssetsから`MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip`をダウンロードし、新しいフォルダへ展開して`Moonlight.exe`を起動してください。Windows x64向けのPortable版で、インストールは不要です。
+[SDL3修正版fix.4（検証版）](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.4)のAssetsから`MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0-SDL3.zip`をダウンロードし、新しいフォルダへ展開して`Moonlight.exe`を起動してください。インストールは不要です。[最新安定版](https://github.com/hinatamaxxx/moonlight-qt/releases/latest)は実入力で改善が報告された旧SDL2回避版fix.3です。
 
 2026-10-09、Windows 11クライアント→Windows 11ホストで、classic SDL2へ戻したfix.3による改善が報告されました。2026-10-10の比較では、SDL3で検査用ウィンドウの後に作った配信ウィンドウにIMEコンテキストが残り、`SDL_StopTextInput()`でも解除されないことを再現しました。SDL3のWindows実装がIMEの初期化先を最初のウィンドウに保持するためです。さらに既定の`WM_KEY`経路ではIMEに加工されたメッセージを扱います。今回の修正はこの2点に対応します。元の連打・文字抜けを実際の配信で完全に再現したわけではなく、SDL3修正版の実入力確認はまだ必要です。
 
@@ -26,7 +26,7 @@ This unofficial Windows x64 fork uses Moonlight v6.2.0 with sdl2-compat 2.32.74 
 
 Legacy mappings and transmission flags are preserved. Raw Input uses physical press/release order for Hankaku/Zenkaku, without the legacy WM_KEY inversion. Classic SDL2 and non-Windows behavior is unchanged. Normal builds use SDL3; `setup-deps.ps1 -UseClassicSdl` explicitly selects the previous workaround.
 
-Download `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0.zip` from the [latest release](https://github.com/hinatamaxxx/moonlight-qt/releases/latest), extract it into a new folder, and run `Moonlight.exe`. This is a Windows x64 Portable build; no installation is required.
+Download `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0-SDL3.zip` from [fix.4 (prerelease)](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.4), extract it into a new folder, and run `Moonlight.exe`. This is a Windows x64 Portable build; no installation is required. The latest stable release remains fix.3 until live typing is confirmed.
 
 On 2026-10-10, a native test reproduced an IME context remaining on the second SDL3 window despite inactive text input and SDL_StopTextInput(). SDL3's IMM initialization retains the first window. The fix disables the actual streaming HWND's IME and bypasses IME-modified WM_KEY input. Tests cover real Raw Input registration, IME exclusion, WM_KEY deduplication, window recreation, captured transport, package hashes and startup. The original live-stream symptoms have not been fully reproduced automatically; live Japanese typing with this SDL3 build still needs confirmation. See [investigation details](docs/windows-sdl3-input.md).
 
