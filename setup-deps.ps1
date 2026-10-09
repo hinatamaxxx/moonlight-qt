@@ -1,6 +1,7 @@
-param([switch]$UseUpstreamSdl)
+param([switch]$UseClassicSdl, [switch]$UseUpstreamSdl)
 
 $ErrorActionPreference = 'Stop'
+if ($UseClassicSdl -and $UseUpstreamSdl) { throw 'Choose one SDL runtime' }
 
 $Organization = "moonlight-stream"
 $PrebuiltRepo = "moonlight-qt-deps"
@@ -36,7 +37,7 @@ foreach ($AssetName in $Assets) {
     Remove-Item $ArchivePath
 }
 
-if (-not $UseUpstreamSdl) {
+if ($UseClassicSdl) {
     # Only Windows x64 is covered by the JIS runtime workaround and live test.
     & (Join-Path $PSScriptRoot 'scripts\install-classic-sdl.ps1') -RuntimeDirectory (Join-Path $TargetDir 'lib\x64')
 }

@@ -7,4 +7,6 @@ for /f "usebackq delims=" %%i in (`%VSWHERE% -latest -products * -requires Micro
 )
 if errorlevel 1 exit /b 1
 python tests\run-keyboard-regression.py
+if errorlevel 1 exit /b 1
+python tests\run-windows-input-runtime.py %*
 exit /b %ERRORLEVEL%

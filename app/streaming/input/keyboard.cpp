@@ -2,6 +2,7 @@
 
 #include <Limelight.h>
 #include "SDL_compat.h"
+#include "windowskeyboard.h"
 
 #define VK_0 0x30
 #define VK_A 0x41
@@ -439,6 +440,11 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 break;
             case SDL_SCANCODE_GRAVE:
                 keyCode = 0xC0;
+                if (WindowsKeyboardInput::usesRawInput()) {
+                    // Raw Input reports physical press/release order. The
+                    // legacy IME message inversion must not invert it again.
+                    break;
+                }
                 if (event->state == SDL_PRESSED) {
                     m_KeysDown.remove(MAKE_KEYPRESS_STATE(0x8000 | keyCode, modifiers, shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0));
                     LiSendKeyboardEvent2(0x8000 | keyCode,

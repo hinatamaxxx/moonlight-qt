@@ -28,6 +28,10 @@ prefix = r'''
 #define SDL_LogInfo(...) ((void)0)
 
 static LANGID testLayout = 0x0411;
+static bool rawInput = false;
+namespace WindowsKeyboardInput {
+    static bool usesRawInput() { return rawInput; }
+}
 static HKL keyboardLayout(DWORD) { return reinterpret_cast<HKL>(static_cast<UINT_PTR>(testLayout)); }
 #define GetKeyboardLayout keyboardLayout
 #define GetForegroundWindow() nullptr
@@ -137,6 +141,37 @@ int main() {
     }
     puts("Legacy parity: all SDL scancodes, modifiers, repeats and JIS sequences passed.");
     puts("v6.2.0 focus-loss key release passed (captured transport; no live IME host).");
+
+    // Raw Input already has physical press/release order. It must not use
+    // the old WM_KEY/IME Hankaku-Zenkaku inversion.
+    rawInput = true;
+    const SDL_Scancode rawKeys[] = {SDL_SCANCODE_GRAVE, SDL_SCANCODE_A,
+        SDL_SCANCODE_INTERNATIONAL1, SDL_SCANCODE_INTERNATIONAL3,
+        SDL_SCANCODE_NONUSBACKSLASH, SDL_SCANCODE_RCTRL};
+    for (auto scan : rawKeys) {
+        SdlInputHandler raw;
+        SDL_KeyboardEvent event{};
+        event.keysym.scancode = scan;
+        event.state = SDL_PRESSED;
+        sent.clear();
+        raw.handleKeyEvent(&event);
+        assert(sent.size() == 1 && sent[0].action == KEY_ACTION_DOWN);
+        auto down = sent[0];
+        event.repeat = 1;
+        raw.handleKeyEvent(&event);
+        assert(sent.size() == 1);
+        event.repeat = 0;
+        event.state = SDL_RELEASED;
+        raw.handleKeyEvent(&event);
+        assert(sent.size() == 2 && sent[1].action == KEY_ACTION_UP);
+        assert(sent[1].code == down.code && sent[1].flags == down.flags);
+        assert(raw.m_KeysDown.empty());
+        event.state = SDL_PRESSED;
+        raw.handleKeyEvent(&event);
+        raw.raiseAllKeys();
+        assert(sent.back().action == KEY_ACTION_UP && raw.m_KeysDown.empty());
+    }
+    puts("Raw Input JIS press/release, repeat filtering and focus-loss release passed.");
 }
 '''
 

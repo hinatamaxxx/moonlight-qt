@@ -2,6 +2,7 @@
 #include "settings/streamingpreferences.h"
 #include "streaming/streamutils.h"
 #include "backend/richpresencemanager.h"
+#include "input/windowskeyboard.h"
 
 #include <Limelight.h>
 #include "SDL_compat.h"
@@ -641,6 +642,8 @@ bool Session::initialize(QQuickWindow* qtWindow)
         SDL_SetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, shouldUseFullScreenSpaces ? "1" : "0");
     }
 #endif
+
+    WindowsKeyboardInput::configure();
 
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
