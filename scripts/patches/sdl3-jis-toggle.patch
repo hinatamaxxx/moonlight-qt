@@ -1,0 +1,38 @@
+diff --git a/src/video/windows/SDL_windowsevents.c b/src/video/windows/SDL_windowsevents.c
+index ae69f98..aa9a724 100644
+--- a/src/video/windows/SDL_windowsevents.c
++++ b/src/video/windows/SDL_windowsevents.c
+@@ -732,6 +732,24 @@ static void WIN_HandleRawMouseInput(Uint64 timestamp, SDL_VideoData *data, HANDL
+     }
+ }
+ 
++static bool WIN_RawKeyboardIsKeyDown(const RAWKEYBOARD *rawkeyboard)
++{
++    // Japanese Hankaku/Zenkaku can report RI_KEY_MAKE for both transitions.
++    // Its DBE messages are reversed: WM_KEYUP is the physical press, and
++    // WM_KEYDOWN is the physical release. Using Flags alone leaves it held.
++    if (rawkeyboard->MakeCode == 0x29 &&
++        (rawkeyboard->VKey == 0xf3 /* VK_DBE_SBCSCHAR */ ||
++         rawkeyboard->VKey == 0xf4 /* VK_DBE_DBCSCHAR */)) {
++        if (rawkeyboard->Message == WM_KEYUP || rawkeyboard->Message == WM_SYSKEYUP) {
++            return true;
++        }
++        if (rawkeyboard->Message == WM_KEYDOWN || rawkeyboard->Message == WM_SYSKEYDOWN) {
++            return false;
++        }
++    }
++    return !(rawkeyboard->Flags & RI_KEY_BREAK);
++}
++
+ static void WIN_HandleRawKeyboardInput(Uint64 timestamp, SDL_VideoData *data, HANDLE hDevice, RAWKEYBOARD *rawkeyboard)
+ {
+     SDL_KeyboardID keyboardID = (SDL_KeyboardID)(uintptr_t)hDevice;
+@@ -760,7 +778,7 @@ static void WIN_HandleRawKeyboardInput(Uint64 timestamp, SDL_VideoData *data, HA
+         return;
+     }
+ 
+-    bool down = !(rawkeyboard->Flags & RI_KEY_BREAK);
++    bool down = WIN_RawKeyboardIsKeyDown(rawkeyboard);
+     SDL_Scancode code;
+     USHORT rawcode = rawkeyboard->MakeCode;
+     if (data->pending_E1_key_sequence) {

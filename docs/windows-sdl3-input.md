@@ -46,9 +46,39 @@ windows; its other Windows keyboard/TSF behavior differs from SDL3.
   fullscreen transitions and after decoder creation.
   Query the HWND each time because fullscreen transitions can replace it.
   This affects the SDL streaming window, not the Qt connection UI or the host.
-* In Raw Input mode, send Hankaku/Zenkaku in physical down/up order. Do not
-  apply the legacy reversed-WM_KEY workaround to an already physical sequence.
+* Correct the special JIS DBE events inside SDL3 before updating SDL's key
+  state. Moonlight then sends the corrected physical down/up sequence.
   Repeat keydowns remain filtered; focus loss still releases held keys.
+
+## Half/full-width toggle defect found after fix.4
+
+The user confirmed that fix.4 repaired Japanese typing, but then reported that
+Hankaku/Zenkaku no longer toggled the host IME. A native Raw Input capture on
+the client recorded only that key while Moonlight was foreground:
+
+| MakeCode | Flags | VKey | Message |
+| --- | --- | --- | --- |
+| 0x29 | 0 | 0xf3 (VK_DBE_SBCSCHAR) | WM_KEYUP |
+| 0x29 | 0 | 0xf4 (VK_DBE_DBCSCHAR) | WM_KEYDOWN |
+| 0x29 | 0 | 0xf4 (VK_DBE_DBCSCHAR) | WM_KEYUP |
+| 0x29 | 0 | 0xf3 (VK_DBE_SBCSCHAR) | WM_KEYDOWN |
+
+SDL3 3.4.18 derives direction solely from RI_KEY_BREAK. All four events above
+therefore become keydowns: the key stays held, later events become repeats,
+and Moonlight discards them. These DBE toggle messages use WM_KEYUP for the
+physical press and WM_KEYDOWN for release, as the fork's earlier WM_KEY
+workaround also handles.
+
+`scripts/patches/sdl3-jis-toggle.patch` corrects only scan 0x29 with these two
+DBE virtual keys. All other Raw Input keeps its original flags-based decoding.
+The correction must happen before SDL's keyboard-state/repeat handling; merely
+inverting Moonlight's final packet cannot restore an event already discarded.
+
+`scripts/build-sdl3-jis.bat` builds SDL3 from release-3.4.18 commit
+`829a65d769d935c4852f8159e964312c0957260a` with this patch. Dependency setup
+uses it by default. `SDL3-jis-build.json` records the source revision, patch
+hash and compiled DLL hash; this is an altered SDL3 build, not upstream's DLL.
+SDL3 remains version 3.4.18 and sdl2-compat remains 2.32.74.
 
 ## Verification and limits
 
@@ -59,12 +89,18 @@ WM_KEY suppression in Raw Input mode (and two events when it is disabled),
 window recreation, legacy transport parity and Raw Input JIS key release.
 It does not inject global input or interfere with an active stream.
 
+`tests/run-jis-raw-decoder.py` compiles the exact patched decoder and replays
+the captured events: 200 balanced presses/releases, repeated holds and ordinary
+keys pass. This reproduces the decoder defect without recording text keys.
+
 CI runs the same checks without requiring the original HIMC defect to exist
-on the runner. Package checks pin both SDL DLL hashes and verify actual
+on the runner. Package checks verify source/patch provenance, both SDL DLL hashes and actual
 Moonlight startup. These checks cannot substitute for user Japanese typing
 through Sunshine, including conversion, missing characters and key repetition.
 Remote Desktop, software keyboards and third-party injected input have not
 been qualified with the Raw Input path.
 
-Use fix.3 or `setup-deps.ps1 -UseClassicSdl` as a comparison/fallback until
-live typing with the SDL3 build is confirmed. Other dependencies remain v19.
+fix.5 contains the DBE correction. Live host IME toggling with fix.5 still needs
+user confirmation; the earlier fix.4 typing confirmation does not cover it.
+Use fix.3 or `setup-deps.ps1 -UseClassicSdl` as a comparison/fallback.
+Other dependencies remain v19.

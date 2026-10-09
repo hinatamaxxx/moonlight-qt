@@ -232,6 +232,15 @@ if "%ML_SYMBOL_ARCHIVE%" NEQ "" (
 echo Copying DLL dependencies
 copy %SOURCE_ROOT%\libs\windows\lib\%ARCH%\*.dll %DEPLOY_FOLDER%
 if !ERRORLEVEL! NEQ 0 goto Error
+if exist %SOURCE_ROOT%\libs\windows\lib\%ARCH%\SDL3-jis-build.json (
+    copy %SOURCE_ROOT%\libs\windows\lib\%ARCH%\SDL3-jis-build.json %DEPLOY_FOLDER%
+    if !ERRORLEVEL! NEQ 0 goto Error
+    copy %SOURCE_ROOT%\libs\windows\lib\%ARCH%\SDL3-LICENSE.txt %DEPLOY_FOLDER%
+    if !ERRORLEVEL! NEQ 0 goto Error
+    copy %SOURCE_ROOT%\scripts\patches\sdl3-jis-toggle.patch %DEPLOY_FOLDER%
+    if !ERRORLEVEL! NEQ 0 goto Error
+)
+if !ERRORLEVEL! NEQ 0 goto Error
 
 echo Copying AntiHooking.dll
 copy %BUILD_FOLDER%\AntiHooking\%BUILD_CONFIG%\AntiHooking.dll %DEPLOY_FOLDER%

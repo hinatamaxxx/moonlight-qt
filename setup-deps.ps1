@@ -40,6 +40,15 @@ foreach ($AssetName in $Assets) {
 if ($UseClassicSdl) {
     # Only Windows x64 is covered by the JIS runtime workaround and live test.
     & (Join-Path $PSScriptRoot 'scripts\install-classic-sdl.ps1') -RuntimeDirectory (Join-Path $TargetDir 'lib\x64')
+} else {
+    # SDL3 needs the JIS DBE key direction correction before events reach SDL2.
+    Push-Location $PSScriptRoot
+    try {
+        cmd /c scripts\build-sdl3-jis.bat
+        if ($LASTEXITCODE -ne 0) { throw 'Patched SDL3 build failed' }
+    } finally {
+        Pop-Location
+    }
 }
 
 Write-Host "Dependencies successfully deployed" -ForegroundColor Green

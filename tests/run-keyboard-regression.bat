@@ -9,4 +9,6 @@ if errorlevel 1 exit /b 1
 python tests\run-keyboard-regression.py
 if errorlevel 1 exit /b 1
 python tests\run-windows-input-runtime.py %*
+if errorlevel 1 exit /b 1
+python tests\run-jis-raw-decoder.py
 exit /b %ERRORLEVEL%
