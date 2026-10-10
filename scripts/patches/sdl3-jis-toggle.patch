@@ -1,8 +1,28 @@
 diff --git a/src/video/windows/SDL_windowsevents.c b/src/video/windows/SDL_windowsevents.c
-index ae69f98..aa9a724 100644
+index ae69f98..32ddc9d 100644
 --- a/src/video/windows/SDL_windowsevents.c
 +++ b/src/video/windows/SDL_windowsevents.c
-@@ -732,6 +732,24 @@ static void WIN_HandleRawMouseInput(Uint64 timestamp, SDL_VideoData *data, HANDL
+@@ -521,14 +521,13 @@ WIN_KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+         return CallNextHookEx(NULL, nCode, wParam, lParam);
+     }
+ 
++    // Returning 1 prevents these keys from reaching Raw Input as well as
++    // WM_KEY. Forward the intercepted transitions even in raw keyboard mode
++    // so Ctrl/Alt/GUI and grabbed shortcuts keep their modifier state.
+     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+-        if (!data->raw_keyboard_enabled) {
+-            SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, hookData->scanCode, scanCode, true);
+-        }
++        SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, hookData->scanCode, scanCode, true);
+     } else {
+-        if (!data->raw_keyboard_enabled) {
+-            SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, hookData->scanCode, scanCode, false);
+-        }
++        SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, hookData->scanCode, scanCode, false);
+ 
+         /* If the key was down prior to our hook being installed, allow the
+            key up message to pass normally the first time. This ensures other
+@@ -732,6 +731,24 @@ static void WIN_HandleRawMouseInput(Uint64 timestamp, SDL_VideoData *data, HANDL
      }
  }
  
@@ -27,7 +47,7 @@ index ae69f98..aa9a724 100644
  static void WIN_HandleRawKeyboardInput(Uint64 timestamp, SDL_VideoData *data, HANDLE hDevice, RAWKEYBOARD *rawkeyboard)
  {
      SDL_KeyboardID keyboardID = (SDL_KeyboardID)(uintptr_t)hDevice;
-@@ -760,7 +778,7 @@ static void WIN_HandleRawKeyboardInput(Uint64 timestamp, SDL_VideoData *data, HA
+@@ -760,7 +777,7 @@ static void WIN_HandleRawKeyboardInput(Uint64 timestamp, SDL_VideoData *data, HA
          return;
      }
  

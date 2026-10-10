@@ -80,6 +80,35 @@ uses it by default. `SDL3-jis-build.json` records the source revision, patch
 hash and compiled DLL hash; this is an altered SDL3 build, not upstream's DLL.
 SDL3 remains version 3.4.18 and sdl2-compat remains 2.32.74.
 
+## Grabbed shortcut defect reported after fix.5
+
+The user subsequently reported that combinations such as copy/paste did not
+work. The earlier live fix.5 confirmation covered typing and IME toggling,
+not keyboard-grab modifier delivery.
+
+In SDL3 3.4.18, `WIN_KeyboardHookProc()` intercepts Ctrl, Alt, GUI, PrintScreen,
+Tab and Escape and returns 1 to suppress normal Windows handling. However,
+it sends the intercepted key to SDL only when `raw_keyboard_enabled` is false.
+The swallowed transitions are also unavailable to the Raw Input path, so the
+Raw Input configuration used by this fork loses modifiers while grabbed.
+For example, C reaches Moonlight without a corresponding Ctrl press.
+
+fix.6 extends the SDL3 patch so the hook forwards its intercepted transitions
+in both input modes. Ordinary keys continue through Raw Input. The existing
+AltGr fake-Ctrl exclusion and release of modifiers held before grabbing are
+preserved. Japanese DBE direction correction and local IME exclusion remain.
+
+`tests/run-grabbed-shortcuts.py` compiles the exact production hook with a
+captured event sink and a Windows-routing model (suppressed input does not
+also reach Raw Input). The unpatched hook fails for the expected missing Ctrl.
+The patched hook passes repeated Ctrl+C/V/A/Z, nested left/right modifiers,
+Shift combinations, reversed release order, Alt/GUI, AltGr and pre-grab release.
+This test does not inject global keyboard input or prove end-to-end host
+shortcut operation. On 2026-10-10, the user tested fix.6 with Ctrl+C/V, Ctrl+A,
+Shift selection and Japanese input and confirmed that simultaneous shortcuts
+and Japanese input were normal in the live Windows 11 client/host stream.
+This qualifies that environment, not every keyboard, IME or system shortcut.
+
 ## Verification and limits
 
 `tests/run-keyboard-regression.bat --reproduce-ime` passes locally against the
@@ -104,6 +133,8 @@ fix.5 contains the DBE correction. On 2026-10-10, the user tested fix.5 on the
 Windows 11 client/host and explicitly confirmed that both half/full-width
 toggling and Japanese typing were normal. This is a live user confirmation,
 not an automated Sunshine/IME test or validation of every keyboard/device.
-fix.5 is the final release; old releases are removed except v6.1. Source history
-and `setup-deps.ps1 -UseClassicSdl` preserve the classic comparison option.
+The later shortcut report supersedes the designation of fix.5 as final.
+fix.6 is the final release after live shortcut and typing confirmation;
+v6.1 remains available. Source history and
+`setup-deps.ps1 -UseClassicSdl` preserve the classic comparison option.
 Other dependencies remain v19.

@@ -1,14 +1,16 @@
 # Moonlight PC v6.2.0 - 日本語入力修正版
 
-Moonlight v6.2.0をベースにした非公式Windows x64版です。sdl2-compat 2.32.74／SDL3 3.4.18を使い、WindowsのRaw Inputからキーの押下・解放を取得します。配信ウィンドウのローカルIMEを明示的に無効化し、日本語の変換処理を接続先に任せます。[fix.5](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.5)を最終版とし、過去のリリースは[v6.1](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.1.0-jp-keyboard-fix.1)のみ残します。
+Moonlight v6.2.0をベースにした非公式Windows x64版です。sdl2-compat 2.32.74／SDL3 3.4.18を使い、WindowsのRaw Inputからキーの押下・解放を取得します。配信ウィンドウのローカルIMEを明示的に無効化し、日本語の変換処理を接続先に任せます。[fix.6](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.6)で、fix.5に残っていたCtrl+C／Vなどの同時押しの不具合を修正しています。旧版の[v6.1](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.1.0-jp-keyboard-fix.1)も残します。
 
 キーの割り当てと送信フラグは旧フォークを維持しています。半角／全角キーは、WindowsのDBEイベントで解放フラグが立たないため、SDL3側で特殊なメッセージから押下・解放を補正して送ります。補正はこのキーに限定し、通常のRaw Inputやclassic SDL2の従来の処理を維持します。
 
-[最終版fix.5](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.5)のAssetsから`MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0-SDL3.zip`をダウンロードし、新しいフォルダへ展開して`Moonlight.exe`を起動してください。インストールは不要です。2026-10-10、ユーザーがWindows 11同士の実際の配信で、半角／全角切り替えと日本語文字入力の両方が正常と確認しました。
+[最終版fix.6](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.6)のAssetsから`MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0-SDL3.zip`をダウンロードし、新しいフォルダへ展開して`Moonlight.exe`を起動してください。インストールは不要です。2026-10-10、ユーザーがWindows 11同士の実際の配信で、Ctrl+C／Vなどの同時押しと日本語入力が正常と確認しました。旧リリースはv6.1だけ残します。
+
+システムキーを捕まえるSDL3のフックは、Ctrl／AltなどをWindows側で止める一方、Raw Input使用中はSDLへ送っていませんでした。fix.6はフックが止めたキーもSDLへ渡し、通常キーはRaw Inputで扱います。日本語入力と半角／全角の修正を維持しています。
 
 SDL3で配信ウィンドウにIMEコンテキストが残る問題を再現し、fix.4でRaw Inputと明示的なIME解除に対応しました。その後、ユーザーの実機で半角／全角キーだけを記録し、解放時にもRaw Inputの解放フラグが立たず、SDL3が押しっぱなしと判断する別の原因を確認しました。fix.5はSDL3 3.4.18のソースに限定的なパッチを適用します。ユーザーによる確認はこのWindows 11環境の結果であり、全IME・全キーボードの検証ではありません。
 
-自動テストは取得した半角／全角イベントの200回分の押下・解放、通常キー、リピート除外、フォーカス喪失時の解放、Raw Input登録、IME解除、二重送信防止、ウィンドウ再作成を確認します。配布ZIPのDLLハッシュ、パッチの出所、x64形式、SDL_ttf初期化、Moonlight起動も確認します。設定・ペアリング情報は配布ZIPに含めません。[調査の根拠と確認範囲](docs/windows-sdl3-input.md)も参照してください。
+自動テストはCtrl+C／V／A／Z、左右の修飾キーとShiftの重ね押し、解放順の変更、AltGr、半角／全角イベントの200回分の押下・解放、フォーカス喪失時の解放、Raw Input登録、IME解除、二重送信防止、ウィンドウ再作成を確認します。配布ZIPのDLLハッシュ、パッチの出所、x64形式、SDL_ttf初期化、Moonlight起動も確認します。設定・ペアリング情報は配布ZIPに含めません。[調査の根拠と確認範囲](docs/windows-sdl3-input.md)も参照してください。
 
 ## ビルドと旧SDL2回避版
 
@@ -22,11 +24,11 @@ SDL3で配信ウィンドウにIMEコンテキストが残る問題を再現し�
 
 ## English
 
-This unofficial Windows x64 fork uses Moonlight v6.2.0 with sdl2-compat 2.32.74 and SDL3 3.4.18. It obtains physical keyboard events through Windows Raw Input and explicitly disassociates the local IME from the streaming HWND. Text composition is handled on the host. fix.5 is the final release; v6.1 is retained and intermediate releases are removed.
+This unofficial Windows x64 fork uses Moonlight v6.2.0 with sdl2-compat 2.32.74 and SDL3 3.4.18. It obtains physical keyboard events through Windows Raw Input and explicitly disassociates the local IME from the streaming HWND. Text composition is handled on the host. fix.6 repairs missing grabbed modifiers and shortcuts reported after fix.5; v6.1 is retained.
 
 Legacy mappings and transmission flags are preserved. A narrow SDL3 patch decodes Hankaku/Zenkaku DBE messages before SDL keyboard-state/repeat handling: the captured Windows events lack RI_KEY_BREAK even on release. Ordinary Raw Input and classic SDL2 behavior are unchanged. Normal dependency setup builds patched SDL3 3.4.18 from pinned source; `setup-deps.ps1 -UseClassicSdl` selects the earlier workaround.
 
-Download `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0-SDL3.zip` from [fix.5 (final)](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.5), extract it into a new folder, and run `Moonlight.exe`. On 2026-10-10, the user confirmed normal half/full-width toggling and Japanese typing in a live Windows 11 to Windows 11 stream. This is confirmation for that environment, not every IME or keyboard.
+Download `MoonlightPortable-Windows-x64-jp-keyboard-v6.2.0-SDL3.zip` from [fix.6 (final)](https://github.com/hinatamaxxx/moonlight-qt/releases/tag/v6.2.0-jp-keyboard-fix.6), extract it into a new folder, and run `Moonlight.exe`. On 2026-10-10, the user confirmed normal simultaneous-key shortcuts and Japanese input in a live Windows 11 to Windows 11 stream. Its SDL3 hook forwards the transitions it swallows, including Ctrl/Alt/GUI, even with Raw Input enabled. Ordinary keys keep using Raw Input. v6.1 is retained; intermediate releases are removed.
 
 On 2026-10-10, a native test reproduced an IME context remaining on the second SDL3 window despite inactive text input and SDL_StopTextInput(). SDL3's IMM initialization retains the first window. The fix disables the actual streaming HWND's IME and bypasses IME-modified WM_KEY input. Tests cover real Raw Input registration, IME exclusion, WM_KEY deduplication, window recreation, captured transport, package hashes and startup. Live typing and toggling were confirmed by the user; the full streaming symptoms are not reproduced automatically. See [investigation details](docs/windows-sdl3-input.md).
 

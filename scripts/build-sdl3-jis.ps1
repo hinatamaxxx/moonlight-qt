@@ -55,7 +55,7 @@ $TaskMetadata = [ordered]@{
     sourceCommit = $TaskSourceCommit
     patchSha256 = Get-TaskSha256 $TaskPatch
     dllSha256 = Get-TaskSha256 $TaskDll
-    correction = 'Windows JIS DBE toggle press/release decoding'
+    correction = 'Windows JIS DBE toggle decoding and keyboard-grab modifier forwarding'
 }
 $TaskMetadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $TaskRuntimeDirectory 'SDL3-jis-build.json') -Encoding UTF8
 Write-Host 'Patched SDL3 3.4.18 runtime deployed.'
