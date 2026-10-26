@@ -484,12 +484,23 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 // the IME, and Windows reports its physical press as a key up and
                 // its release as a key down. Send each press to the host as a
                 // complete tap, so the host never sees the key held down and
-                // doesn't auto-repeat it into rapid IME toggling.
+                // doesn't auto-repeat it into rapid IME toggling. Auto-repeat
+                // on the client also arrives as more key ups without the
+                // repeat flag, so only the first one until the release counts.
                 if (PRIMARYLANGID(LOWORD(GetKeyboardLayout(0))) == LANG_JAPANESE) {
                     if (event->state == SDL_RELEASED) {
-                        LiSendKeyboardEvent2(0x8000 | keyCode, KEY_ACTION_DOWN, modifiers, 0);
-                        LiSendKeyboardEvent2(0x8000 | keyCode, KEY_ACTION_UP, modifiers, 0);
+                        if (!m_HankakuZenkakuHeld) {
+                            m_HankakuZenkakuHeld = true;
+                            LiSendKeyboardEvent2(0x8000 | keyCode, KEY_ACTION_DOWN, modifiers, 0);
+                            LiSendKeyboardEvent2(0x8000 | keyCode, KEY_ACTION_UP, modifiers, 0);
+                        }
                     }
+                    else {
+                        m_HankakuZenkakuHeld = false;
+                    }
+                    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                                "[pr-test] Hankaku/Zenkaku: held=%d",
+                                m_HankakuZenkakuHeld);
                     return;
                 }
 #endif
@@ -549,6 +560,8 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
 
 void SdlInputHandler::raiseAllKeys()
 {
+    m_HankakuZenkakuHeld = false;
+
     if (m_KeysDown.isEmpty()) {
         return;
     }
