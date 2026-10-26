@@ -193,6 +193,17 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
     char flags;
     bool shouldNotConvertToScanCodeOnServer = false;
 
+    // Test build only: record Hankaku/Zenkaku events as SDL delivers them.
+    if (event->keysym.scancode == SDL_SCANCODE_GRAVE) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "[pr-test] Hankaku/Zenkaku: state=%d repeat=%d sym=0x%x mod=0x%x timestamp=%u",
+                    event->state,
+                    event->repeat,
+                    (unsigned int)event->keysym.sym,
+                    (unsigned int)event->keysym.mod,
+                    (unsigned int)event->timestamp);
+    }
+
     if (event->repeat) {
         // Ignore repeat key down events
         SDL_assert(event->state == SDL_PRESSED);
