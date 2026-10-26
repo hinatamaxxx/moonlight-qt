@@ -3,6 +3,10 @@
 #include <Limelight.h>
 #include "SDL_compat.h"
 
+#ifdef Q_OS_WIN32
+#include <Windows.h>
+#endif
+
 #define VK_0 0x30
 #define VK_A 0x41
 
@@ -188,6 +192,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
     char modifiers;
     char flags;
     bool shouldNotConvertToScanCodeOnServer = false;
+    Uint8 keyState = event->state;
 
     if (event->repeat) {
         // Ignore repeat key down events
@@ -464,6 +469,14 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 break;
             case SDL_SCANCODE_GRAVE:
                 keyCode = 0xC0;
+#ifdef Q_OS_WIN32
+                // On a Japanese layout, this is the Hankaku/Zenkaku key. Windows
+                // reports its down and up events with the opposite state, so
+                // swap them back before sending them to the host.
+                if (PRIMARYLANGID(LOWORD(GetKeyboardLayout(0))) == LANG_JAPANESE) {
+                    keyState = keyState == SDL_PRESSED ? SDL_RELEASED : SDL_PRESSED;
+                }
+#endif
                 break;
             case SDL_SCANCODE_LEFTBRACKET:
                 keyCode = 0xDB;
@@ -504,7 +517,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
     flags = shouldNotConvertToScanCodeOnServer ? SS_KBE_FLAG_NON_NORMALIZED : 0;
 
     // Track the key state so we always know which keys are down
-    if (event->state == SDL_PRESSED) {
+    if (keyState == SDL_PRESSED) {
         m_KeysDown.insert(MAKE_KEYPRESS_STATE(keyCode, modifiers, flags));
     }
     else {
@@ -512,7 +525,7 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
     }
 
     LiSendKeyboardEvent2(keyCode,
-                         event->state == SDL_PRESSED ?
+                         keyState == SDL_PRESSED ?
                              KEY_ACTION_DOWN : KEY_ACTION_UP,
                          modifiers,
                          flags);
