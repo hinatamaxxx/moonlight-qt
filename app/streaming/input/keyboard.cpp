@@ -3,6 +3,10 @@
 #include <Limelight.h>
 #include "SDL_compat.h"
 
+#ifdef Q_OS_WIN32
+#include <Windows.h>
+#endif
+
 #define VK_0 0x30
 #define VK_A 0x41
 
@@ -464,6 +468,20 @@ void SdlInputHandler::handleKeyEvent(SDL_KeyboardEvent* event)
                 break;
             case SDL_SCANCODE_GRAVE:
                 keyCode = 0xC0;
+#ifdef Q_OS_WIN32
+                // On a Japanese layout, this is the Hankaku/Zenkaku key. It toggles
+                // the IME, and Windows reports its physical press as a key up and
+                // its release as a key down. Send each press to the host as a
+                // complete tap, so the host never sees the key held down and
+                // doesn't auto-repeat it into rapid IME toggling.
+                if (PRIMARYLANGID(LOWORD(GetKeyboardLayout(0))) == LANG_JAPANESE) {
+                    if (event->state == SDL_RELEASED) {
+                        LiSendKeyboardEvent2(0x8000 | keyCode, KEY_ACTION_DOWN, modifiers, 0);
+                        LiSendKeyboardEvent2(0x8000 | keyCode, KEY_ACTION_UP, modifiers, 0);
+                    }
+                    return;
+                }
+#endif
                 break;
             case SDL_SCANCODE_LEFTBRACKET:
                 keyCode = 0xDB;
