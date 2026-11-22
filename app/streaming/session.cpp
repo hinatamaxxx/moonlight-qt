@@ -32,7 +32,28 @@
 
 #include <openssl/rand.h>
 
+#include <QDateTime>
 #include <QtEndian>
+
+#ifdef Q_OS_WIN32
+#include <Windows.h>
+#include <powrprof.h>
+
+static ULONG CALLBACK powerNotifyCallback(PVOID context, ULONG type, PVOID setting)
+{
+    Q_UNUSED(setting);
+    Session* session = static_cast<Session*>(context);
+    if (type == PBT_APMSUSPEND) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "System suspend detected");
+        session->handleSystemSuspend();
+    }
+    else if (type == PBT_APMRESUMEAUTOMATIC || type == PBT_APMRESUMESUSPEND) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "System resume detected (type=%lu)", type);
+        session->handleSystemResume();
+    }
+    return ERROR_SUCCESS;
+}
+#endif
 #include <QCoreApplication>
 #include <QThreadPool>
 #include <QSvgRenderer>
@@ -90,6 +111,29 @@ void Session::clConnectionTerminated(int errorCode)
 {
     unsigned int portFlags = LiGetPortFlagsFromTerminationErrorCode(errorCode);
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
+
+    // If the connection dropped around a system suspend/resume, suppress the
+    // error dialog and automatically reconnect once the session cleans up.
+    if (errorCode != ML_ERROR_GRACEFUL_TERMINATION) {
+        qint64 lastResumeMs = s_ActiveSession->m_LastResumeTimeMs.load();
+        bool recentlyResumed = lastResumeMs > 0 &&
+                               (QDateTime::currentMSecsSinceEpoch() - lastResumeMs) < 30000;
+        if (s_ActiveSession->m_SystemSuspended.load() ||
+            s_ActiveSession->m_ShouldReconnect.load() ||
+            recentlyResumed) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Connection terminated around system sleep/resume (%d); scheduling reconnect",
+                        errorCode);
+            s_ActiveSession->m_UnexpectedTermination = true;
+            s_ActiveSession->m_ShouldReconnect.store(true);
+
+            SDL_Event event;
+            event.type = SDL_QUIT;
+            event.quit.timestamp = SDL_GetTicks();
+            SDL_PushEvent(&event);
+            return;
+        }
+    }
 
     // Display the termination dialog if this was not intended
     switch (errorCode) {
@@ -580,6 +624,11 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_MouseEmulationRefCount(0),
       m_FlushingWindowEventsRef(0),
       m_ShouldExit(false),
+      m_IsReconnect(false),
+      m_ShouldReconnect(false),
+      m_SystemSuspended(false),
+      m_LastResumeTimeMs(0),
+      m_PowerNotifyHandle(nullptr),
       m_AsyncConnectionSuccess(false),
       m_PortTestResults(0),
       m_OpusDecoder(nullptr),
@@ -1630,14 +1679,32 @@ bool Session::startConnectionAsync()
 
     try {
         NvHTTP http(m_Computer);
-        http.startApp(m_Computer->currentGameId != 0 ? "resume" : "launch",
-                      m_Computer->isNvidiaServerSoftware,
-                      m_App.id, &m_StreamConfig,
-                      enableGameOptimizations,
-                      m_Preferences->playAudioOnHost,
-                      m_InputHandler->getAttachedGamepadMask(),
-                      !m_Preferences->multiController,
-                      rtspSessionUrl);
+        bool tryResumeFirst = m_Computer->currentGameId != 0 || m_IsReconnect;
+        try {
+            http.startApp(tryResumeFirst ? "resume" : "launch",
+                          m_Computer->isNvidiaServerSoftware,
+                          m_App.id, &m_StreamConfig,
+                          enableGameOptimizations,
+                          m_Preferences->playAudioOnHost,
+                          m_InputHandler->getAttachedGamepadMask(),
+                          !m_Preferences->multiController,
+                          rtspSessionUrl);
+        } catch (const GfeHttpResponseException&) {
+            if (!m_IsReconnect || !tryResumeFirst) {
+                throw;
+            }
+            // The host app may have exited while the client was asleep; fall back to launch.
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Reconnect resume failed with host error; falling back to launch");
+            http.startApp("launch",
+                          m_Computer->isNvidiaServerSoftware,
+                          m_App.id, &m_StreamConfig,
+                          enableGameOptimizations,
+                          m_Preferences->playAudioOnHost,
+                          m_InputHandler->getAttachedGamepadMask(),
+                          !m_Preferences->multiController,
+                          rtspSessionUrl);
+        }
     } catch (const GfeHttpResponseException& e) {
         emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
         return false;
@@ -1750,6 +1817,35 @@ void Session::flushWindowEvents()
     flushEvent.type = SDL_USEREVENT;
     flushEvent.user.code = SDL_CODE_FLUSH_WINDOW_EVENT_BARRIER;
     SDL_PushEvent(&flushEvent);
+}
+
+Session* Session::createReconnectSession()
+{
+    Session* next = new Session(m_Computer, m_App, m_Preferences);
+    next->m_IsReconnect = true;
+    return next;
+}
+
+void Session::handleSystemSuspend()
+{
+    m_SystemSuspended.store(true);
+}
+
+void Session::handleSystemResume()
+{
+    m_SystemSuspended.store(false);
+    m_LastResumeTimeMs.store(QDateTime::currentMSecsSinceEpoch());
+
+    // Tear down the dead/stale stream immediately and reconnect once cleaned up.
+    // Mark termination unexpected so quitAppAfter does not quit the host app.
+    if (!m_ShouldReconnect.exchange(true)) {
+        m_UnexpectedTermination = true;
+
+        SDL_Event event;
+        event.type = SDL_QUIT;
+        event.quit.timestamp = SDL_GetTicks();
+        SDL_PushEvent(&event);
+    }
 }
 
 void Session::setShouldExit(bool quitHostApp)
@@ -1980,8 +2076,26 @@ void Session::exec()
     // Switch to async logging mode when we enter the SDL loop
     StreamUtils::enterAsyncLoggingMode();
 
+#ifdef Q_OS_WIN32
+    {
+        DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS notifyParams = {};
+        notifyParams.Callback = powerNotifyCallback;
+        notifyParams.Context = this;
+        HPOWERNOTIFY powerHandle = nullptr;
+        if (PowerRegisterSuspendResumeNotification(DEVICE_NOTIFY_CALLBACK, &notifyParams, &powerHandle) == ERROR_SUCCESS) {
+            m_PowerNotifyHandle = powerHandle;
+        }
+        else {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Failed to register suspend/resume notification: %lu",
+                        GetLastError());
+        }
+    }
+#endif
+
     // Hijack this thread to be the SDL main thread. We have to do this
     // because we want to suspend all Qt processing until the stream is over.
+    qint64 lastLoopWallMs = QDateTime::currentMSecsSinceEpoch();
     SDL_Event event;
     for (;;) {
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
@@ -1994,7 +2108,16 @@ void Session::exec()
         // NB: This behavior was introduced in SDL 2.0.16, but had a few critical
         // issues that could cause indefinite timeouts, delayed joystick detection,
         // and other problems.
-        if (!SDL_WaitEventTimeout(&event, 1000)) {
+        bool hasEvent = SDL_WaitEventTimeout(&event, 1000) != 0;
+        qint64 nowWallMs = QDateTime::currentMSecsSinceEpoch();
+        if (nowWallMs - lastLoopWallMs > 5000) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Detected wall-clock jump of %lld ms (system sleep/resume); reconnecting",
+                        (long long)(nowWallMs - lastLoopWallMs));
+            handleSystemResume();
+        }
+        lastLoopWallMs = nowWallMs;
+        if (!hasEvent) {
             presence.runCallbacks();
             continue;
         }
@@ -2332,6 +2455,13 @@ void Session::exec()
     }
 
 DispatchDeferredCleanup:
+#ifdef Q_OS_WIN32
+    if (m_PowerNotifyHandle != nullptr) {
+        PowerUnregisterSuspendResumeNotification(static_cast<HPOWERNOTIFY>(m_PowerNotifyHandle));
+        m_PowerNotifyHandle = nullptr;
+    }
+#endif
+
     // Switch back to synchronous logging mode
     StreamUtils::exitAsyncLoggingMode();
 

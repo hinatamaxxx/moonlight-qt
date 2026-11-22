@@ -13,6 +13,91 @@ Item {
                                            qsTr("Starting %1...").arg(appName)
     property bool isResume : false
     property bool quitAfter : false
+    property bool isReconnecting : false
+    property bool reconnectCancelled : false
+    property int reconnectAttempt : 0
+    property int maxReconnectAttempts : 15
+    property Session pendingReconnectSession : null
+    property string lastReconnectError : ""
+
+    focus: isReconnecting
+    Keys.onEscapePressed: {
+        if (isReconnecting) {
+            cancelReconnect()
+        }
+    }
+
+    function connectSessionSignals(targetSession)
+    {
+        targetSession.stageStarting.connect(stageStarting)
+        targetSession.stageFailed.connect(stageFailed)
+        targetSession.connectionStarted.connect(connectionStarted)
+        targetSession.displayLaunchError.connect(displayLaunchError)
+        targetSession.quitStarting.connect(quitStarting)
+        targetSession.sessionFinished.connect(sessionFinished)
+        targetSession.readyForDeletion.connect(sessionReadyForDeletion)
+    }
+
+    function cancelReconnect()
+    {
+        reconnectCancelled = true
+        isReconnecting = false
+        reconnectTimer.stop()
+        pendingReconnectSession = null
+        streamSegueErrorDialog.text = ""
+        if (session) {
+            session.interrupt()
+        }
+        else {
+            SdlGamepadKeyNavigation.enable()
+            if (!quitAfter) {
+                stackView.pop()
+            }
+            window.visible = true
+        }
+    }
+
+    function startReconnectAttempt()
+    {
+        if (reconnectCancelled || !isReconnecting || pendingReconnectSession === null) {
+            return
+        }
+
+        reconnectAttempt++
+        stageText = qsTr("Reconnecting to %1... (%2/%3)").arg(appName).arg(reconnectAttempt).arg(maxReconnectAttempts)
+        stageSpinner.visible = true
+        stageLabel.visible = true
+        hintText.visible = true
+        hintText.text = qsTr("Press Esc to cancel")
+        window.visible = true
+
+        session = pendingReconnectSession
+        pendingReconnectSession = null
+        connectSessionSignals(session)
+
+        if (!session.initialize(window)) {
+            if (!reconnectCancelled && reconnectAttempt < maxReconnectAttempts) {
+                pendingReconnectSession = session.createReconnectSession()
+                lastReconnectError = streamSegueErrorDialog.text
+                streamSegueErrorDialog.text = ""
+                session = null
+                gc()
+                reconnectTimer.interval = 2000
+                reconnectTimer.start()
+            }
+            else {
+                isReconnecting = false
+                if (!streamSegueErrorDialog.text && lastReconnectError) {
+                    streamSegueErrorDialog.text = lastReconnectError
+                }
+                sessionFinished(0)
+                sessionReadyForDeletion()
+            }
+            return
+        }
+
+        session.start()
+    }
 
     function stageStarting(stage)
     {
@@ -32,6 +117,12 @@ Item {
 
     function connectionStarted()
     {
+        // Reconnection succeeded
+        isReconnecting = false
+        reconnectAttempt = 0
+        lastReconnectError = ""
+        streamSegueErrorDialog.text = ""
+
         // Hide the UI contents so the user doesn't
         // see them briefly when we pop off the StackView
         stageSpinner.visible = false
@@ -61,6 +152,30 @@ Item {
 
     function sessionFinished(portTestResult)
     {
+        if (!reconnectCancelled && session &&
+            (session.shouldReconnect() || (isReconnecting && reconnectAttempt < maxReconnectAttempts))) {
+            isReconnecting = true
+            if (streamSegueErrorDialog.text) {
+                lastReconnectError = streamSegueErrorDialog.text
+                streamSegueErrorDialog.text = ""
+            }
+            pendingReconnectSession = session.createReconnectSession()
+            stageText = qsTr("Reconnecting to %1... (%2/%3)").arg(appName).arg(reconnectAttempt + 1).arg(maxReconnectAttempts)
+            stageSpinner.visible = true
+            stageLabel.visible = true
+            hintText.visible = true
+            hintText.text = qsTr("Press Esc to cancel")
+            window.visible = true
+            return
+        }
+
+        if (isReconnecting) {
+            isReconnecting = false
+            if (!streamSegueErrorDialog.text && lastReconnectError) {
+                streamSegueErrorDialog.text = lastReconnectError
+            }
+        }
+
         if (portTestResult !== 0 && portTestResult !== -1 && streamSegueErrorDialog.text) {
             streamSegueErrorDialog.text += "\n\n" + qsTr("This PC's Internet connection is blocking Moonlight. Streaming over the Internet may not work while connected to this network.")
         }
@@ -98,6 +213,12 @@ Item {
         // and keeps other libraries (like SDL_TTF) around until it is deleted.
         session = null
         gc()
+
+        if (isReconnecting && !reconnectCancelled && pendingReconnectSession !== null) {
+            // Give the network interface a moment to come back up after system resume
+            reconnectTimer.interval = (reconnectAttempt === 0) ? 1500 : 2000
+            reconnectTimer.start()
+        }
     }
 
     StackView.onDeactivating: {
@@ -113,13 +234,7 @@ Item {
         toolBar.visible = false
 
         // Hook up our signals
-        session.stageStarting.connect(stageStarting)
-        session.stageFailed.connect(stageFailed)
-        session.connectionStarted.connect(connectionStarted)
-        session.displayLaunchError.connect(displayLaunchError)
-        session.quitStarting.connect(quitStarting)
-        session.sessionFinished.connect(sessionFinished)
-        session.readyForDeletion.connect(sessionReadyForDeletion)
+        connectSessionSignals(session)
 
         // Ensure the SystemProperties async thread is finished,
         // since it may currently be using the SDL video subsystem
@@ -127,6 +242,13 @@ Item {
 
         // Kick off the stream
         streamLoader.active = true
+    }
+
+    Timer {
+        id: reconnectTimer
+        interval: 2000
+        repeat: false
+        onTriggered: startReconnectAttempt()
     }
 
     Timer {
@@ -200,7 +322,18 @@ Item {
         sourceComponent: Item {}
     }
 
+    Button {
+        id: cancelReconnectButton
+        visible: isReconnecting
+        text: qsTr("Cancel")
+        anchors.top: stageRow.bottom
+        anchors.topMargin: 20
+        anchors.horizontalCenter: parent.horizontalCenter
+        onClicked: cancelReconnect()
+    }
+
     Row {
+        id: stageRow
         anchors.centerIn: parent
         spacing: 5
 

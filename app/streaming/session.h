@@ -2,6 +2,7 @@
 
 #include <QSemaphore>
 #include <QQuickWindow>
+#include <atomic>
 
 #include <Limelight.h>
 #include <opus_multistream.h>
@@ -104,6 +105,8 @@ public:
     Q_INVOKABLE bool initialize(QQuickWindow* qtWindow);
     Q_INVOKABLE void start();
     Q_INVOKABLE void interrupt();
+    Q_INVOKABLE bool shouldReconnect() const { return m_ShouldReconnect.load(); }
+    Q_INVOKABLE Session* createReconnectSession();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -124,6 +127,10 @@ public:
     void flushWindowEvents();
 
     void setShouldExit(bool quitHostApp = false);
+
+    void handleSystemSuspend();
+
+    void handleSystemResume();
 
 signals:
     void stageStarting(QString stage);
@@ -263,6 +270,11 @@ private:
     int m_FlushingWindowEventsRef;
     QStringList m_LaunchWarnings;
     bool m_ShouldExit;
+    bool m_IsReconnect;
+    std::atomic<bool> m_ShouldReconnect;
+    std::atomic<bool> m_SystemSuspended;
+    std::atomic<qint64> m_LastResumeTimeMs;
+    void* m_PowerNotifyHandle;
 
     bool m_AsyncConnectionSuccess;
     int m_PortTestResults;
