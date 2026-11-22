@@ -4,6 +4,7 @@
 #include "settings/mappingmanager.h"
 #include "path.h"
 #include "utils.h"
+#include "windowskeyboard.h"
 
 #include <QtGlobal>
 #include <QDir>
@@ -19,6 +20,7 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
       m_PendingMouseButtonsAllUpOnVideoRegionLeave(false),
       m_PointerRegionLockActive(false),
       m_PointerRegionLockToggledByUser(false),
+      m_HankakuZenkakuHeld(false),
       m_FakeMouseCaptureActive(false),
       m_KeyboardCaptureActive(false),
       m_CaptureSystemKeysMode(prefs.captureSysKeysMode),
@@ -268,6 +270,7 @@ SdlInputHandler::~SdlInputHandler()
 void SdlInputHandler::setWindow(SDL_Window *window)
 {
     m_Window = window;
+    WindowsKeyboardInput::disableLocalIme(m_Window);
 }
 
 void SdlInputHandler::notifyFocusLost()
@@ -287,6 +290,8 @@ void SdlInputHandler::notifyFocusLost()
 
 void SdlInputHandler::notifyFocusGained()
 {
+    // Fullscreen or decoder transitions may replace the native HWND.
+    WindowsKeyboardInput::disableLocalIme(m_Window);
 }
 
 bool SdlInputHandler::isCaptureActive()
