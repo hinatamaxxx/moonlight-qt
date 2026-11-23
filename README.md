@@ -1,114 +1,53 @@
-# Moonlight PC
+# Moonlight PC（Windows 日本語入力 & ノート PC 運用向けフォーク）
 
-[Moonlight PC](https://moonlight-stream.org) is an open source PC client for NVIDIA GameStream and [Sunshine](https://github.com/LizardByte/Sunshine).
+[moonlight-stream/moonlight-qt](https://github.com/moonlight-stream/moonlight-qt)（v6.2.0 / `master` ベース）の非公式 Windows 向けフォークです。
 
-Moonlight also has mobile versions for [Android](https://github.com/moonlight-stream/moonlight-android) and [iOS](https://github.com/moonlight-stream/moonlight-ios).
+Windows クライアントでの **日本語入力の不具合修正** と、**ノート PC の蓋閉じスリープ運用を快適にする自動再接続機能** を追加しています。SDL3 本体の独自パッチや Raw Input 強制を使わない最小限の構成で実装しています。
 
-You can follow development on our [Discord server](https://moonlight-stream.org/discord) and help translate Moonlight into your language on [Weblate](https://hosted.weblate.org/projects/moonlight/moonlight-qt/).
+---
 
- [![Build](https://img.shields.io/github/actions/workflow/status/moonlight-stream/moonlight-qt/build.yml?branch=master)](https://github.com/moonlight-stream/moonlight-qt/actions/workflows/build.yml?query=branch%3Amaster)
- [![Downloads](https://img.shields.io/github/downloads/moonlight-stream/moonlight-qt/total)](https://github.com/moonlight-stream/moonlight-qt/releases)
- [![Translation Status](https://hosted.weblate.org/widgets/moonlight/-/moonlight-qt/svg-badge.svg)](https://hosted.weblate.org/projects/moonlight/moonlight-qt/)
+## 主な改善・追加機能
 
-## Features
- - Hardware accelerated video decoding on Windows, Mac, and Linux
- - H.264, HEVC, and AV1 codec support (AV1 requires Sunshine and a supported host GPU)
- - YUV 4:4:4 support (Sunshine only)
- - HDR streaming support
- - 7.1 surround sound audio support
- - 10-point multitouch support (Sunshine only)
- - Gamepad support with force feedback and motion controls for up to 16 players
- - Support for both pointer capture (for games) and direct mouse control (for remote desktop)
- - Support for passing system-wide keyboard shortcuts like Alt+Tab to the host
- 
-## Downloads
-- [Windows, macOS, and Steam Link](https://github.com/moonlight-stream/moonlight-qt/releases)
-- [Snap (for Ubuntu-based Linux distros)](https://snapcraft.io/moonlight)
-- [Flatpak (for other Linux distros)](https://flathub.org/apps/details/com.moonlight_stream.Moonlight)
-- [AppImage](https://github.com/moonlight-stream/moonlight-qt/releases)
-- [Raspberry Pi 4 and 5](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-Raspberry-Pi-4)
-- [Generic ARM 32-bit and 64-bit Debian packages](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-ARM%E2%80%90based-Single-Board-Computers) (not for Raspberry Pi)
-- [Experimental RISC-V Debian packages](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-RISC%E2%80%90V-Single-Board-Computers)
-- [NVIDIA Jetson and Nintendo Switch (Ubuntu L4T)](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-Linux4Tegra-(L4T)-Ubuntu)
+### 1. 日本語入力の改善（Windows）
 
-### Nightly Builds
-- [Downloads](https://nightly.link/moonlight-stream/moonlight-qt/workflows/build/master)
+- **文字抜け・連打の解消（ローカル IME の確実な無効化）**
+  - 本家 Moonlight（SDL3）では起動時の隠しデコーダウィンドウにしか `IME_Disable()` が効かず、配信ウィンドウにローカル Windows の IME が残って入力を横取りする問題があります。
+  - 配信ウィンドウの HWND に対して直接 `ImmAssociateContextEx(hwnd, nullptr, 0)` を適用（ウィンドウ作成時・フォーカス復帰時・フルスクリーン切替時・デコーダ生成後）することで、ローカル IME の干渉を完全に解消しました。
+  - SDL3 への独自パッチや Raw Input 強制を使わないため、`Ctrl+C` / `Ctrl+V` / `Ctrl+A` / `Shift+矢印` などの修飾キー同時押しも正常に動作します。
+- **半角/全角キーの単押し・長押し修正**
+  - Windows 日本語配列では半角/全角キー（`SDL_SCANCODE_GRAVE`）の押下・解放が反転して届き、長押しすると自動リピートでホストの IME が高速切替され続ける問題があります。
+  - 初回押下時に `DOWN → UP` を 1 タップ送信し、物理的に離す（またはフォーカス喪失）まで後続のリピートを無視するように修正しました。1 回押しでも長押しでもホストの IME が **1 回だけ** 切り替わります。
+- **Windows JIS 専用キーの追加**
+  - `変換`（`0x1C`）・`無変換`（`0x1D`）・`カタカナ/ひらがな`（`0xF2`）を `SS_KBE_FLAG_NON_NORMALIZED` 付きで送信するように追加しました（本家の `¥` / `ろ(_)` 対応も維持）。
 
-#### Special Thanks
+### 2. ノート PC 運用向けの機能追加・改善
 
-[![Hosted By: Cloudsmith](https://img.shields.io/badge/OSS%20hosting%20by-cloudsmith-blue?logo=cloudsmith&style=flat-square)](https://cloudsmith.com)
+- **スリープ / 蓋閉じ復帰時の自動再接続**
+  - 配信中にノート PC を閉じてスリープ → 再度開いてスリープ解除した際、エラーダイアログを出さずに自動でストリームを再開します。
+  - Windows 公式 API `PowerRegisterSuspendResumeNotification`（通常スリープ S3・モダンスタンバイ S0ix 両対応）と、配信ループ内の時刻ジャンプ検知（5 秒以上）の 2 重構成でスリープ復帰を確実に検知します。
+  - 復帰を検知した時点で死んだ接続を即座に終了し（ホスト側アプリは終了させません）、Wi-Fi や VPN の再接続を待ちながら **約 2 秒おきに最大 15 回（約 30 秒間）** 自動で再接続を試行します。ホスト側でアプリが生きていれば `resume`、終了していれば自動で `launch` にフォールバックします。
+  - 再接続中は `Esc` キーまたは `Cancel` ボタンでいつでも中止できます。`Ctrl+Alt+Shift+Q` などの通常終了時は再接続しません。
+  - Windows の自動ログインと組み合わせることで、ノート PC の蓋を開くだけでそのままホスト PC のデスクトップへシームレスに復帰できます。
 
-Hosting for Moonlight's Debian and L4T package repositories is graciously provided for free by [Cloudsmith](https://cloudsmith.com).
+---
 
-## Building
+## ダウンロードと使い方（Windows x64 Portable）
 
-### Windows Build Requirements
-* Qt 6.11 SDK or later (earlier versions may work but are not officially supported)
-* [Visual Studio 2026](https://visualstudio.microsoft.com/downloads/) (Community edition is fine)
-* Select **MSVC** option during Qt installation. MinGW is not supported.
-* [7-Zip](https://www.7-zip.org/) (only if building installers for non-development PCs)
-* Graphics Tools (only if running debug builds)
-  * Install "Graphics Tools" in the Optional Features page of the Windows Settings app.
-  * Alternatively, run `dism /online /add-capability /capabilityname:Tools.Graphics.DirectX~~~~0.0.1.0` and reboot.
+1. [Releases](https://github.com/hinatamaxxx/moonlight-qt/releases/latest) から `MoonlightPortable-Windows-x64-*.zip` をダウンロードします。
+2. 任意のフォルダに展開し、`Moonlight.exe` を起動します。
+   - `portable.dat` 同梱のため、設定とペアリング情報は展開したフォルダ内に保存されます（既存の Moonlight 環境を上書きしません）。
 
-### macOS Build Requirements
-* Qt 6.11 SDK or later (earlier versions may work but are not officially supported)
-* Xcode 15 or later (earlier versions may work but are not officially supported)
-* [create-dmg](https://github.com/sindresorhus/create-dmg) (only if building DMGs for use on non-development Macs)
+---
 
-### Linux/Unix Build Requirements
-* Qt 6 is recommended, but Qt 5.12 or later is also supported (replace `qmake6` with `qmake` when using Qt 5).
-* GCC or Clang
-* FFmpeg 4.0 or later
-* Install the required packages:
-  * Debian/Ubuntu:
-    * Base Requirements: `libegl1-mesa-dev libgl1-mesa-dev libopus-dev libsdl2-dev libsdl2-ttf-dev libssl-dev libavcodec-dev libavformat-dev libswscale-dev libva-dev libvdpau-dev libxkbcommon-dev wayland-protocols libdrm-dev`
-    * Qt 6 (Recommended): `qt6-base-dev qt6-declarative-dev libqt6svg6-dev qt6-wayland qml6-module-qtquick-controls qml6-module-qtquick-templates qml6-module-qtquick-layouts qml6-module-qtqml-workerscript qml6-module-qtquick-window qml6-module-qtquick`
-    * Qt 5: `qtbase5-dev qt5-qmake qtdeclarative5-dev qtquickcontrols2-5-dev qml-module-qtquick-controls2 qml-module-qtquick-layouts qml-module-qtquick-window2 qml-module-qtquick2 qtwayland5`
-  * RedHat/Fedora (RPM Fusion repo required):
-    * Base Requirements: `openssl-devel SDL2-devel SDL2_ttf-devel ffmpeg-devel libva-devel libvdpau-devel opus-devel pulseaudio-libs-devel alsa-lib-devel libdrm-devel`
-    * Qt 6 (Recommended): `qt6-qtsvg-devel qt6-qtdeclarative-devel`
-    * Qt 5: `qt5-qtsvg-devel qt5-qtquickcontrols2-devel`
-* Building the Vulkan renderer requires a `libplacebo-dev`/`libplacebo-devel` version of at least v7.349.0 and FFmpeg 6.1 or later.
+## 本家（upstream）への PR 状況
 
-### Steam Link Build Requirements
-* [Steam Link SDK](https://github.com/ValveSoftware/steamlink-sdk) cloned on your build system
-* STEAMLINK_SDK_PATH environment variable set to the Steam Link SDK path
+日本語入力の修正は本家 `moonlight-stream/moonlight-qt` にも独立した PR として提出しています。
 
-**Steam Link Hardware Limitations**  
-Moonlight builds for Steam Link are subject to hardware limitations of the Steam Link device:
-* Maximum resolution: **1080p (1920x1080)**
-* Maximum framerate: **60 FPS**
-* Maximum video bitrate: **40 Mbps**
-* **HDR streaming is not supported** on the original hardware
+- ローカル Windows IME の無効化: [moonlight-stream/moonlight-qt#2108](https://github.com/moonlight-stream/moonlight-qt/pull/2108)
+- 半角/全角キーの修正: [moonlight-stream/moonlight-qt#2109](https://github.com/moonlight-stream/moonlight-qt/pull/2109)
 
-### Docker containers
-If you want to use Docker for building, look at [this repo](https://github.com/cgutman/moonlight-packaging) containing canonical containers
-for different architectures, which handle building deps and extra linking for you.
+---
 
-### Build Setup Steps
-1. Install the latest Qt SDK (and optionally, the Qt Creator IDE) from https://www.qt.io/download
-    * You can install Qt via Homebrew on macOS, but you will need to use `brew install qt --with-debug` to be able to create debug builds of Moonlight.
-    * You may also use your Linux distro's package manager for the Qt SDK as long as the packages are Qt 5.12 or later.
-    * This step is not required for building on Steam Link, because the Steam Link SDK includes Qt 5.14.
-2. Download submodules and dependencies
-    * Run `git submodule update --init --recursive` from within `moonlight-qt/`.
-    * On Windows and macOS, you must also run `setup-deps.ps1` (Windows) or `setup-deps.py` (macOS).
-    * Perform these steps each time you pull new changes from the Git repository.
-3. Open the project in Qt Creator or build from qmake on the command line.
-    * To build a binary for use on non-development machines, use the scripts in the `scripts` folder.
-        * For Windows builds, use `scripts\build-arch.bat` and `scripts\generate-bundle.bat`. Execute these scripts from the root of the repository within a Qt command prompt. Ensure  7-Zip binary directory is on your `%PATH%`.
-        * For macOS builds, use `scripts/generate-dmg.sh`. Execute this script from the root of the repository and ensure Qt's `bin` folder is in your `$PATH`.
-        * For Steam Link builds, run `scripts/build-steamlink-app.sh` from the root of the repository.
-    * To build from the command line for development use on macOS or Linux, run `qmake6 moonlight-qt.pro` then `make debug` or `make release`.
-        * The final binary will be placed in `app/moonlight`.
-    * To create an embedded build for a single-purpose device, use `qmake6 "CONFIG+=embedded" moonlight-qt.pro` and build normally.
-        * This build will lack windowed mode, Discord/Help links, and other features that don't make sense on an embedded device.
-        * For platforms with poor GPU performance, add `"CONFIG+=gpuslow"` to prefer direct KMSDRM rendering over GL/Vulkan renderers. Direct KMSDRM rendering can use dedicated YUV/RGB conversion and scaling hardware rather than slower GPU shaders for these operations.
+## 本家 Moonlight PC について
 
-## Contribute
-1. Fork us
-2. Write code
-3. Send Pull Requests
-
-Check out our [website](https://moonlight-stream.org) for project links and information.
+Moonlight PC 本体・対応プラットフォーム・ビルド手順の詳細は、本家リポジトリ [moonlight-stream/moonlight-qt](https://github.com/moonlight-stream/moonlight-qt) を参照してください。
